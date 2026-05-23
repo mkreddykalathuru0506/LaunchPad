@@ -1,0 +1,484 @@
+// Launch Pad — full data model
+// All PII columns marked with @@encrypted are encrypted at rest by lib/crypto.ts middleware.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- NextAuth ----------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Identity & RBAC ----------
+
+enum Role {
+  CANDIDATE
+  VERIFIER
+  MANAGER
+  ADMIN
+}
+
+enum CandidateType {
+  INTERN
+  CANDIDATE
+  TRAINER
+  CONTRACTOR
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(CANDIDATE)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  candidate       Candidate?
+  assignedCases   Case[]         @relation("AssignedVerifier")
+  managedCases    Case[]         @relation("ManagedBy")
+  auditEvents     AuditEvent[]
+  notifications   Notification[]
+  stageReviews    StageReview[]
+
+  @@index([role, active])
+}
+
+model Candidate {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  candidateType   CandidateType
+  phone           String?
+  dobEncrypted    String?       // encrypted (lib/crypto)
+  legalFirstName  String?
+  legalMiddleName String?
+  legalLastName   String?
+  nationality     String?
+  isVeteran       Boolean       @default(false)
+  startDate       DateTime?
+  positionTitle   String?
+  hiringManager   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  case Case?
+}
+
+// ---------- Case & Stages ----------
+
+enum CaseStatus {
+  DRAFT
+  IN_PROGRESS
+  AWAITING_REVIEW
+  NEEDS_CORRECTION
+  CLEARED
+  REJECTED
+  WITHDRAWN
+}
+
+enum StageType {
+  IDENTITY
+  ADDRESS
+  EDUCATION
+  EMPLOYMENT
+  CRIMINAL
+  VETERAN
+  PHOTO
+  VIDEO
+  REFERENCE
+}
+
+enum StageStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_CORRECTION
+  APPROVED
+  REJECTED
+}
+
+model Case {
+  id              String     @id @default(cuid())
+  reference       String     @unique           // human-friendly ID, e.g. LP-2026-0001
+  candidateId     String     @unique
+  status          CaseStatus @default(DRAFT)
+  assignedVerifierId String?
+  managedById     String?
+  requiredStages  StageType[]                 // configured per case
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  clearedAt       DateTime?
+  rejectedAt      DateTime?
+  clearedReportPath String?
+
+  candidate         Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignedVerifier  User?         @relation("AssignedVerifier", fields: [assignedVerifierId], references: [id])
+  managedBy         User?         @relation("ManagedBy", fields: [managedById], references: [id])
+  stages            Stage[]
+  documents         Document[]
+  addresses         Address[]
+  educations        Education[]
+  employments       Employment[]
+  references        Reference[]
+  veteranRecord     VeteranRecord?
+  consents          ConsentRecord[]
+  magicLinks        MagicLink[]
+  notes             CaseNote[]
+
+  @@index([status])
+  @@index([assignedVerifierId])
+  @@index([managedById])
+  @@index([createdAt])
+}
+
+model Stage {
+  id           String       @id @default(cuid())
+  caseId       String
+  type         StageType
+  status       StageStatus  @default(NOT_STARTED)
+  submittedAt  DateTime?
+  decidedAt    DateTime?
+  payload      Json?         // structured stage payload snapshot
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  case      Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  reviews   StageReview[]
+  documents Document[]
+
+  @@unique([caseId, type])
+  @@index([status])
+}
+
+model StageReview {
+  id          String      @id @default(cuid())
+  stageId     String
+  reviewerId  String
+  decision    StageStatus // APPROVED | REJECTED | NEEDS_CORRECTION
+  comment     String?
+  adapterRaw  Json?
+  createdAt   DateTime    @default(now())
+
+  stage    Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  reviewer User  @relation(fields: [reviewerId], references: [id])
+}
+
+// ---------- Stage payload tables ----------
+
+enum AddressType {
+  CURRENT
+  PERMANENT
+}
+
+model Address {
+  id          String      @id @default(cuid())
+  caseId      String
+  type        AddressType
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  postalCode  String
+  country     String
+  fromDate    DateTime?
+  toDate      DateTime?
+  isCurrent   Boolean      @default(false)
+  proofDocId  String?
+
+  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  proofDoc    Document? @relation("AddressProof", fields: [proofDocId], references: [id])
+}
+
+model Education {
+  id              String   @id @default(cuid())
+  caseId          String
+  level           String   // SSC | Intermediate | Diploma | Bachelor | Master | PhD | Certification
+  board           String?  // CBSE / ICSE / State Board / University name
+  institution     String   // School or college name
+  degree          String   // 10th / 12th / B.Tech / B.Sc / M.Tech etc.
+  fieldOfStudy    String?  // Stream / Specialization (MPC, BiPC, Commerce, CSE, ECE, …)
+  rollNumber      String?  // Hall ticket / Registration / Roll number
+  startDate       DateTime
+  endDate         DateTime?
+  gpa             String?  // Percentage or CGPA
+  registrarEmail  String?
+  transcriptDocId String?  // Marksheet / consolidated marks memo
+  degreeDocId     String?  // Passing certificate / provisional / degree certificate
+
+  case          Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  transcriptDoc Document? @relation("EduTranscript", fields: [transcriptDocId], references: [id])
+  degreeDoc     Document? @relation("EduDegree", fields: [degreeDocId], references: [id])
+}
+
+model Employment {
+  id                String   @id @default(cuid())
+  caseId            String
+  employer          String
+  title             String
+  startDate         DateTime
+  endDate           DateTime?
+  isCurrent         Boolean  @default(false)
+  employmentType    String   // FullTime | PartTime | Contract | Intern
+  managerName       String?
+  managerEmail      String?
+  managerPhone      String?
+  reasonForLeaving  String?
+  offerLetterDocId  String?
+  relievingDocId    String?
+  payslipDocId      String?
+
+  case             Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  offerLetterDoc   Document? @relation("EmpOffer", fields: [offerLetterDocId], references: [id])
+  relievingDoc     Document? @relation("EmpRelieving", fields: [relievingDocId], references: [id])
+  payslipDoc       Document? @relation("EmpPayslip", fields: [payslipDocId], references: [id])
+}
+
+model Reference {
+  id            String   @id @default(cuid())
+  caseId        String
+  name          String
+  relationship  String
+  employer      String?
+  email         String
+  phone         String?
+  yearsKnown    Int?
+  contacted     Boolean  @default(false)
+  contactedAt   DateTime?
+  responseJson  Json?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model VeteranRecord {
+  id                String    @id @default(cuid())
+  caseId            String    @unique
+  branch            String
+  serviceStart      DateTime
+  serviceEnd        DateTime?
+  serviceNumber     String?   // encrypted
+  characterOfService String?
+  dischargeDocId    String?
+
+  case         Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  dischargeDoc Document? @relation("VetDischarge", fields: [dischargeDocId], references: [id])
+}
+
+// ---------- Documents ----------
+
+enum DocumentKind {
+  ID_PROOF
+  ADDRESS_PROOF
+  EDUCATION_TRANSCRIPT
+  EDUCATION_DEGREE
+  EMPLOYMENT_OFFER
+  EMPLOYMENT_RELIEVING
+  EMPLOYMENT_PAYSLIP
+  VETERAN_DISCHARGE
+  PHOTO_SELFIE
+  VIDEO_RECORDING
+  CONSENT_PDF
+  OTHER
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  caseId       String
+  stageId      String?
+  kind         DocumentKind
+  filename     String
+  storagePath  String       // resolved by lib/storage
+  contentType  String
+  sizeBytes    Int
+  sha256       String
+  uploaderIp   String?
+  encrypted    Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  case  Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  stage Stage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+
+  addressUsed      Address[]       @relation("AddressProof")
+  eduTranscriptUsed Education[]    @relation("EduTranscript")
+  eduDegreeUsed    Education[]     @relation("EduDegree")
+  empOfferUsed     Employment[]    @relation("EmpOffer")
+  empRelievingUsed Employment[]    @relation("EmpRelieving")
+  empPayslipUsed   Employment[]    @relation("EmpPayslip")
+  vetDischargeUsed VeteranRecord[] @relation("VetDischarge")
+
+  @@index([caseId])
+}
+
+// ---------- Consents (FCRA / DPDP) ----------
+
+enum ConsentKind {
+  IDENTITY
+  CRIMINAL
+  EMPLOYMENT
+  EDUCATION
+  GENERAL
+}
+
+model ConsentRecord {
+  id         String      @id @default(cuid())
+  caseId     String
+  kind       ConsentKind
+  signedName String
+  acceptedAt DateTime    @default(now())
+  ip         String?
+  userAgent  String?
+  textHash   String       // hash of the consent text at signing time
+  pdfDocId   String?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Magic links (resubmission) ----------
+
+model MagicLink {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  caseId      String
+  stageType   StageType
+  purpose     String     // e.g. "RESUBMIT" | "INVITE"
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ---------- Notifications & Email log ----------
+
+enum NotificationKind {
+  CASE_CREATED
+  STAGE_SUBMITTED
+  STAGE_APPROVED
+  STAGE_REJECTED
+  CORRECTION_REQUESTED
+  CASE_CLEARED
+  CASE_REJECTED
+  GENERIC
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  kind      NotificationKind
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  toEmail    String
+  fromEmail  String
+  subject    String
+  templateId String?
+  status     String   // sent | failed | queued
+  errorText  String?
+  caseId     String?
+  createdAt  DateTime @default(now())
+
+  @@index([toEmail])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ---------- Audit log (append-only) ----------
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  actorId   String?
+  caseId    String?
+  action    String   // dotted: case.created | stage.submitted | stage.approved | etc.
+  target    String?
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([caseId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([actorId])
+}
+
+// ---------- Notes (internal verifier scratchpad) ----------
+
+model CaseNote {
+  id        String   @id @default(cuid())
+  caseId    String
+  authorId  String
+  body      String   @db.Text
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Settings (singleton) ----------
+
+model Settings {
+  id                Int       @id @default(1)
+  appName           String    @default("Launch Pad")
+  brandColor        String    @default("#6366f1")
+  supportEmail      String    @default("bgv@elivixit.com")
+  defaultStages     StageType[] @default([IDENTITY, ADDRESS, EDUCATION, EMPLOYMENT, CRIMINAL, PHOTO, VIDEO, REFERENCE])
+  slaHoursPerStage  Int       @default(72)
+  updatedAt         DateTime  @updatedAt
+}

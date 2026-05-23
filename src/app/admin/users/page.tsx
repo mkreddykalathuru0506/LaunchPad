@@ -1,0 +1,72 @@
+import { db } from "@/lib/db";
+import { PageHeader } from "@/components/app/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Field, FieldGrid } from "@/components/stage/fields";
+import { Button } from "@/components/ui/button";
+import { upsertUser, deactivateUser } from "@/server/actions/admin";
+import { formatDateTime, roleLabels } from "@/lib/utils";
+
+export default async function UsersPage() {
+  const users = await db.user.findMany({ orderBy: { createdAt: "desc" } });
+  return (
+    <>
+      <PageHeader title="Users" description="Manage everyone with access to Launch Pad." />
+
+      <Card className="mb-6">
+        <CardHeader><CardTitle className="text-base">Create user</CardTitle></CardHeader>
+        <CardContent>
+          <form action={upsertUser} className="space-y-4">
+            <FieldGrid>
+              <Field label="Email" htmlFor="email" required><Input id="email" name="email" type="email" required /></Field>
+              <Field label="Name" htmlFor="name" required><Input id="name" name="name" required /></Field>
+              <Field label="Role" htmlFor="role" required>
+                <select id="role" name="role" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+                  <option value="CANDIDATE">Candidate</option>
+                  <option value="VERIFIER">BG Verifier</option>
+                  <option value="MANAGER">BG Manager</option>
+                  <option value="ADMIN">Administrator</option>
+                </select>
+              </Field>
+              <Field label="Active" htmlFor="active">
+                <label className="inline-flex h-10 items-center gap-2 text-sm">
+                  <input id="active" name="active" type="checkbox" defaultChecked className="h-4 w-4" /> Yes
+                </label>
+              </Field>
+            </FieldGrid>
+            <div className="flex justify-end"><Button type="submit">Create user</Button></div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <THead><TR><TH>Name</TH><TH>Email</TH><TH>Role</TH><TH>Active</TH><TH>Created</TH><TH /></TR></THead>
+            <TBody>
+              {users.map((u) => (
+                <TR key={u.id}>
+                  <TD className="font-medium">{u.name ?? "—"}</TD>
+                  <TD>{u.email}</TD>
+                  <TD>{roleLabels[u.role]}</TD>
+                  <TD><Badge tone={u.active ? "success" : "neutral"}>{u.active ? "Active" : "Disabled"}</Badge></TD>
+                  <TD className="text-muted-foreground">{formatDateTime(u.createdAt)}</TD>
+                  <TD>
+                    {u.active && (
+                      <form action={deactivateUser}>
+                        <input type="hidden" name="id" value={u.id} />
+                        <Button type="submit" variant="ghost" size="sm">Deactivate</Button>
+                      </form>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
