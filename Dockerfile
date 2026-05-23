@@ -15,6 +15,12 @@ FROM node:20-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Build-time placeholders — `next build` collects page data which loads our
+# env.ts (Zod-validated). Real values are injected at runtime via env_file.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV NEXTAUTH_SECRET="build-time-placeholder-secret-not-used-at-runtime"
+ENV ENCRYPTION_KEY="build-time-placeholder-key-not-used-at-runtime-32"
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
