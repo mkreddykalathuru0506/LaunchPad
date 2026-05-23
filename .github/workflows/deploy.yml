@@ -33,7 +33,8 @@ jobs:
           script: |
             set -euo pipefail
             DEPLOY_DIR="${{ secrets.VPS_DEPLOY_DIR || '/opt/launchpad' }}"
-            echo "── deploying $GIT_SHA to $DEPLOY_DIR ──"
+            export LP_COMPOSE_FILES="${{ secrets.VPS_LP_COMPOSE_FILES || 'docker-compose.yml' }}"
+            echo "── deploying $GIT_SHA to $DEPLOY_DIR (compose: $LP_COMPOSE_FILES) ──"
             cd "$DEPLOY_DIR"
             ./scripts/deploy.sh
 
