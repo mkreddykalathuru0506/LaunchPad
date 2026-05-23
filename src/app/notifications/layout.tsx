@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { requireSession } from "@/lib/session";
 import { AppShell } from "@/components/app/app-shell";
 import { Bell, Home } from "lucide-react";

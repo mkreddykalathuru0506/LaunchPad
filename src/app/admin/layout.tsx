@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { requireRole } from "@/lib/session";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Shield, Users, Activity, Mail, SlidersHorizontal, Bell } from "lucide-react";
