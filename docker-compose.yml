@@ -14,10 +14,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-launchpad}
     volumes:
       - launchpad-pg:/var/lib/postgresql/data
-    # NOTE: ports intentionally NOT published in production. For local dev,
-    # use `docker compose -f docker-compose.dev.yml up -d` or set LP_PUBLISH_DB=true.
-    ports:
-      - "${LP_PUBLISH_DB_PORT:-5432}:5432"
+    # Production: db is reached only over the docker network — never published.
+    # For local dev use `docker compose -f docker-compose.dev.yml up -d`.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-launchpad} -d ${POSTGRES_DB:-launchpad}"]
       interval: 5s
@@ -52,10 +50,14 @@ services:
       start_period: 30s
       retries: 5
 
+  # Caddy is only launched in "standalone" mode. When deploying behind an
+  # existing shared reverse proxy (e.g. on a multi-tenant VPS), omit this
+  # profile and use docker-compose.shared-caddy.yml instead.
   caddy:
     image: caddy:2.8-alpine
     container_name: launchpad-caddy
     restart: unless-stopped
+    profiles: ["standalone"]
     ports:
       - "80:80"
       - "443:443"

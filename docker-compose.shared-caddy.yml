@@ -1,0 +1,24 @@
+# Overlay for deploying Launch Pad BEHIND an existing reverse proxy that
+# already terminates TLS (e.g., a shared Caddy serving multiple subdomains
+# on the same VPS). Combined usage:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml up -d
+#
+# Effects:
+#   • Launch Pad does NOT spin up its own Caddy (already excluded by profile).
+#   • The `web` container joins the external `elvixit_default` network so the
+#     shared Caddy can resolve `launchpad-web:3000` over docker DNS.
+#   • Postgres stays on the private launchpad network only.
+
+services:
+  web:
+    networks:
+      - default
+      - shared
+
+networks:
+  default:
+    name: launchpad_default
+  shared:
+    external: true
+    name: elvixit_default
