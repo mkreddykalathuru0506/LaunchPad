@@ -1,0 +1,19 @@
+# One-shot container that runs Prisma migrations and the admin seed,
+# then exits. Pulled in by `docker compose --profile tools run --rm migrate`.
+
+FROM node:20-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates python3 build-essential \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci --no-audit --no-fund
+
+# Generate the client + the seed runner needs tsx
+RUN npx prisma generate
+
+# Default command: push schema (idempotent) then seed
+CMD sh -lc "npx prisma db push --skip-generate && npx tsx prisma/seed.ts"

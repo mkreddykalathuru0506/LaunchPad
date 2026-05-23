@@ -1,0 +1,59 @@
+{
+	# ACME contact — Let's Encrypt expiry warnings go here.
+	# Replace before first deploy.
+	email bgv@elivixit.com
+
+	# Reasonable global defaults
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Redirect www → apex
+www.{$LAUNCHPAD_DOMAIN:launchpad.local} {
+	redir https://{$LAUNCHPAD_DOMAIN:launchpad.local}{uri} permanent
+}
+
+# Main site
+{$LAUNCHPAD_DOMAIN:launchpad.local} {
+	encode zstd gzip
+
+	# Static assets — long-cache
+	@static {
+		path /_next/static/* /favicon.ico /robots.txt
+	}
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=(self)"
+		-Server
+		-X-Powered-By
+	}
+
+	# Generous request size for document uploads
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy web:3000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		transport http {
+			read_timeout 60s
+			write_timeout 60s
+			dial_timeout 5s
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -13,19 +13,35 @@ async function main() {
     create: { id: 1 },
   });
 
-  const pwd = await hash("Passw0rd!");
+  // ── First-run admin (idempotent: only created if no admin exists yet) ──
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@elivixit.com").toLowerCase();
+  const adminName = process.env.ADMIN_NAME ?? "Launch Pad Admin";
+  const adminPasswordPlain = process.env.ADMIN_PASSWORD ?? "Passw0rd!";
+  const adminPwd = await hash(adminPasswordPlain);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@elivixit.com" },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: "admin@elivixit.com",
-      name: "Anita Admin",
+      email: adminEmail,
+      name: adminName,
       role: Role.ADMIN,
-      passwordHash: pwd,
+      passwordHash: adminPwd,
       emailVerified: new Date(),
     },
   });
+  console.log(`Admin user: ${admin.email}`);
+
+  // Skip demo seed in production. Set SEED_DEMO=true to force demo data.
+  const seedDemo = (process.env.SEED_DEMO ?? "").toLowerCase() === "true"
+    || process.env.NODE_ENV !== "production";
+
+  if (!seedDemo) {
+    console.log("NODE_ENV=production and SEED_DEMO!=true — skipping demo data.");
+    return;
+  }
+
+  const pwd = await hash("Passw0rd!");
 
   const manager = await prisma.user.upsert({
     where: { email: "manager@elivixit.com" },

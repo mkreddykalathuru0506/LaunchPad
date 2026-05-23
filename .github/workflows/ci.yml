@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Typecheck + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        env:
+          DATABASE_URL: "postgresql://x:x@127.0.0.1:5432/x?schema=public"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXTAUTH_SECRET: "build-only-not-a-real-secret-build-only"
+          ENCRYPTION_KEY: "build-only-not-a-real-key-build-only-3232"
+        run: npm run build

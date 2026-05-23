@@ -28,3 +28,9 @@ Thumbs.db
 coverage
 playwright-report
 test-results
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Backups (created on VPS)
+backups/

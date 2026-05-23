@@ -1,0 +1,14 @@
+# Force LF line endings on the VPS, even when authored on Windows.
+*.sh         text eol=lf
+Dockerfile*  text eol=lf
+Caddyfile    text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+
+# Defaults
+*.ts         text
+*.tsx        text
+*.js         text
+*.mjs        text
+*.json       text
+*.md         text

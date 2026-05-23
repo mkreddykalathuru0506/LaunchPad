@@ -1,21 +1,91 @@
-version: "3.9"
+# Launch Pad — production stack
+# Local dev: only the `db` service is used (frontend runs on host via `npm run dev`).
+#            See README for the local workflow.
+# Production: `docker compose --profile tools run --rm migrate` then `docker compose up -d`.
+
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: launchpad-postgres
+    container_name: launchpad-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: launchpad
-      POSTGRES_PASSWORD: launchpad
-      POSTGRES_DB: launchpad
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-launchpad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-launchpad}
+      POSTGRES_DB: ${POSTGRES_DB:-launchpad}
     volumes:
       - launchpad-pg:/var/lib/postgresql/data
+    # NOTE: ports intentionally NOT published in production. For local dev,
+    # use `docker compose -f docker-compose.dev.yml up -d` or set LP_PUBLISH_DB=true.
+    ports:
+      - "${LP_PUBLISH_DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U launchpad -d launchpad"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-launchpad} -d ${POSTGRES_DB:-launchpad}"]
       interval: 5s
       timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: launchpad-web:latest
+    container_name: launchpad-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@db:5432/${POSTGRES_DB:-launchpad}?schema=public"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    volumes:
+      - launchpad-uploads:/data/uploads
+      - launchpad-outbox:/app/outbox
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
       retries: 5
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: launchpad-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - launchpad-caddy-data:/data
+      - launchpad-caddy-config:/config
+    depends_on:
+      web:
+        condition: service_started
+
+  # One-shot: schema push + seed. Pulled in only via the `tools` profile.
+  # Run with:  docker compose --profile tools run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    image: launchpad-migrate:latest
+    profiles: ["tools"]
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@db:5432/${POSTGRES_DB:-launchpad}?schema=public"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   launchpad-pg:
+  launchpad-uploads:
+  launchpad-outbox:
+  launchpad-caddy-data:
+  launchpad-caddy-config:

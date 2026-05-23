@@ -1,0 +1,43 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout (for sha reference only)
+        uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GIT_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GIT_SHA
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ secrets.VPS_DEPLOY_DIR || '/opt/launchpad' }}"
+            echo "── deploying $GIT_SHA to $DEPLOY_DIR ──"
+            cd "$DEPLOY_DIR"
+            ./scripts/deploy.sh
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deploy failed. SSH into the VPS and run docker compose logs -f web for details."
