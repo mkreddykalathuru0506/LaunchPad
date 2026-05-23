@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
 
   try {
     const buf = await storage.read(storagePath);
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": doc.contentType,
         "Content-Length": doc.sizeBytes.toString(),

@@ -161,7 +161,7 @@ export default async function TeamOverview() {
             <ActivityFeed
               events={activity.map((a) => ({
                 id: a.id,
-                actor: a.actorName,
+                actor: a.actorName ?? "System",
                 action: a.action.replace(/^[^.]+\./, "").replace(/_/g, " "),
                 target: a.target ?? undefined,
                 caseRef: a.caseRef ?? undefined,

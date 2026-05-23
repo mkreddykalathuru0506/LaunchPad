@@ -1,12 +1,13 @@
 import { db } from "./db";
 import { headers } from "next/headers";
+import type { Prisma } from "@prisma/client";
 
 export async function audit(opts: {
   actorId?: string | null;
   caseId?: string | null;
   action: string;
   target?: string | null;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonValue | Record<string, unknown>;
 }) {
   let ip: string | null = null;
   let ua: string | null = null;
@@ -21,7 +22,7 @@ export async function audit(opts: {
       caseId: opts.caseId ?? null,
       action: opts.action,
       target: opts.target ?? null,
-      metadata: opts.metadata ?? undefined,
+      metadata: (opts.metadata as Prisma.InputJsonValue) ?? undefined,
       ip,
       userAgent: ua,
     },
