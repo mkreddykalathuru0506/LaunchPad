@@ -32,7 +32,7 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@db:5432/${POSTGRES_DB:-launchpad}?schema=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@launchpad-db:5432/${POSTGRES_DB:-launchpad}?schema=public"
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
     volumes:
@@ -80,7 +80,7 @@ services:
     profiles: ["tools"]
     env_file: .env
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@db:5432/${POSTGRES_DB:-launchpad}?schema=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@launchpad-db:5432/${POSTGRES_DB:-launchpad}?schema=public"
     depends_on:
       db:
         condition: service_healthy
