@@ -36,6 +36,18 @@ const schema = z.object({
   APP_SUPPORT_EMAIL: z.string().email().default("bgv@elivixit.com"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+
+  // ───────── Company-portal BGV integration ─────────
+  // Shared HMAC secret used to authenticate both inbound (portal → launchpad
+  // case creation) and outbound (launchpad → portal status callback) webhooks.
+  PORTAL_WEBHOOK_SECRET: z.string().optional(),
+  // Portal callback URL invoked when a case reaches a terminal status.
+  PORTAL_BGV_CALLBACK_URL: z
+    .string()
+    .url()
+    .default("https://portal.elvixit.com/api/v1/jobs/webhooks/bgv"),
+  // Kill-switch for outbound notifications (default on).
+  BGV_WEBHOOK_ENABLED: z.enum(["true", "false"]).default("true"),
 });
 
 const parsed = schema.safeParse(process.env);

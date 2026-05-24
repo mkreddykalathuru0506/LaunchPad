@@ -155,6 +155,12 @@ model Case {
   rejectedAt      DateTime?
   clearedReportPath String?
 
+  // Portal linkage — populated when the case was provisioned via the company
+  // portal webhook. Used for idempotent re-POSTs and for firing the outbound
+  // status webhook back to the portal.
+  portalCandidateKind String?
+  portalCandidateId   String?
+
   candidate         Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   assignedVerifier  User?         @relation("AssignedVerifier", fields: [assignedVerifierId], references: [id])
   managedBy         User?         @relation("ManagedBy", fields: [managedById], references: [id])
@@ -169,6 +175,7 @@ model Case {
   magicLinks        MagicLink[]
   notes             CaseNote[]
 
+  @@unique([portalCandidateKind, portalCandidateId])
   @@index([status])
   @@index([assignedVerifierId])
   @@index([managedById])

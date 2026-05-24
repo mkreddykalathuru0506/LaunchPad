@@ -12,6 +12,7 @@ import {
   emailCandidateCleared, emailCandidateRejected, emailStageCorrection,
   emailStageDecided, emailCandidateAssigned, emailVerifierAssigned,
 } from "@/server/emails";
+import { notifyPortalCaseStatus } from "@/server/portal-webhook";
 
 const decisionSchema = z.object({
   stageId: z.string().min(1),
@@ -41,6 +42,12 @@ async function recomputeCase(caseId: string) {
       rejectedAt: status === "REJECTED" ? new Date() : null,
     },
   });
+
+  // Fire portal callback on terminal transitions. Fire-and-forget; never throws.
+  if (status === "CLEARED" || status === "REJECTED") {
+    void notifyPortalCaseStatus(caseId, status);
+  }
+
   return status;
 }
 
@@ -203,6 +210,8 @@ export async function issueClearance(caseId: string, actorId: string) {
     }
     await audit({ actorId, caseId, action: "case.cleared" });
   }
+  // Manual / report-driven clearance also notifies the portal.
+  void notifyPortalCaseStatus(caseId, "CLEARED");
 }
 
 export async function manuallyClearCase(formData: FormData) {
