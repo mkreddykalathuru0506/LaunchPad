@@ -16,6 +16,12 @@ export function MiniBarChart({
   className,
   ...props
 }: MiniBarChartProps) {
+  // Hooks must be called unconditionally — keep above the empty-data
+  // early return so React's render order stays consistent.
+  const uid = React.useId();
+  const gradId = `mbc-grad-${uid.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const gradLastId = `${gradId}-last`;
+
   if (data.length === 0) {
     return (
       <div
@@ -34,10 +40,6 @@ export function MiniBarChart({
   const barWidth = (viewWidth - totalGap) / data.length;
   const radius = Math.min(barWidth / 2, 1.4);
   const minHeightFraction = 0.06;
-
-  const uid = React.useId();
-  const gradId = `mbc-grad-${uid.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const gradLastId = `${gradId}-last`;
 
   return (
     <div
