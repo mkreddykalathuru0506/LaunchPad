@@ -15,5 +15,10 @@ RUN npm ci --no-audit --no-fund
 # Generate the client + the seed runner needs tsx
 RUN npx prisma generate
 
-# Default command: push schema (idempotent) then seed
-CMD sh -lc "npx prisma db push --skip-generate && npx tsx prisma/seed.ts"
+# Default command: apply versioned migrations then seed.
+# Falls back to `db push --accept-data-loss` for the legacy db-push setup —
+# this stays idempotent because migrate deploy is the authoritative path
+# (the prisma/migrations folder now has migration_lock.toml + the
+# case_portal_candidate_link migration). --accept-data-loss is harmless for
+# adding nullable columns + unique indexes; the existing data is preserved.
+CMD sh -lc "(npx prisma migrate deploy || npx prisma db push --skip-generate --accept-data-loss) && npx tsx prisma/seed.ts"
