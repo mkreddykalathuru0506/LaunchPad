@@ -342,3 +342,24 @@ To finish wiring auto-deploy I need:
 4. **SMTP / Resend credentials** — paste these into `.env` on the VPS, do not put them in the repo
 
 I will never store credentials in the repo. The VPS bootstrap (sections 2–5) requires manual interactive commands and should be performed by you. Once steps 2–5 are done, I can validate everything and confirm auto-deploy works end to end.
+
+---
+
+## Deploying (GHCR pull-based)
+
+Images are now built in GitHub Actions (`.github/workflows/build-images.yml`) and published to GitHub Container Registry on every push to `main`:
+
+- `ghcr.io/mkreddykalathuru0506/launchpad-web:latest`
+- `ghcr.io/mkreddykalathuru0506/launchpad-migrate:latest`
+
+On the VPS at `/opt/launchpad`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml pull web migrate
+docker compose run --rm migrate   # prisma migrate deploy + seed
+docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml up -d --force-recreate web
+```
+
+Note: `launchpad-web` MUST be brought up with both compose files so it joins `elvixit_default` (the shared Caddy network); otherwise external traffic 502s.
+
+After the first push to `main`, set both `launchpad-web` and `launchpad-migrate` package visibilities to **public** in the GitHub UI (Packages → package settings → Change visibility), so the VPS can `docker pull` without authenticating.

@@ -23,10 +23,10 @@ services:
       retries: 10
 
   web:
+    image: ghcr.io/mkreddykalathuru0506/launchpad-web:latest
     build:
       context: .
       dockerfile: Dockerfile
-    image: launchpad-web:latest
     container_name: launchpad-web
     restart: unless-stopped
     env_file: .env
@@ -73,10 +73,10 @@ services:
   # One-shot: schema push + seed. Pulled in only via the `tools` profile.
   # Run with:  docker compose --profile tools run --rm migrate
   migrate:
+    image: ghcr.io/mkreddykalathuru0506/launchpad-migrate:latest
     build:
       context: .
       dockerfile: Dockerfile.migrate
-    image: launchpad-migrate:latest
     profiles: ["tools"]
     env_file: .env
     environment:
