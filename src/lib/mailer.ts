@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import nodemailer, { type Transporter } from "nodemailer";
 import { env } from "./env";
 import { db } from "./db";
 import { logger } from "./logger";
@@ -42,6 +43,60 @@ class FilesystemMailer implements MailerAdapter {
   }
 }
 
+class SmtpMailer implements MailerAdapter {
+  private transporter: Transporter | null = null;
+
+  private getTransporter(): Transporter | null {
+    if (this.transporter) return this.transporter;
+    if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASS) return null;
+    const port = Number(env.SMTP_PORT ?? "587");
+    // 465 → implicit TLS; 587 → STARTTLS (secure: false + requireTLS)
+    const secure = env.SMTP_SECURE === "true" || port === 465;
+    this.transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port,
+      secure,
+      requireTLS: !secure,
+      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 100,
+      connectionTimeout: 15_000,
+      socketTimeout: 30_000,
+    });
+    return this.transporter;
+  }
+
+  async send(mail: Mail) {
+    const tx = this.getTransporter();
+    if (!tx) return { ok: false, error: "SMTP_HOST/USER/PASS missing" };
+    try {
+      const info = await tx.sendMail({
+        from: env.MAILER_FROM,
+        to: mail.to,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
+      logger.info("email.smtp", {
+        to: mail.to,
+        subject: mail.subject,
+        messageId: info.messageId,
+        accepted: info.accepted?.length ?? 0,
+        rejected: info.rejected?.length ?? 0,
+      });
+      if (info.rejected && info.rejected.length > 0) {
+        return { ok: false, error: `Rejected: ${info.rejected.join(",")}` };
+      }
+      return { ok: true };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.error("email.smtp_failed", { to: mail.to, error: msg });
+      return { ok: false, error: msg };
+    }
+  }
+}
+
 class ResendMailer implements MailerAdapter {
   async send(mail: Mail) {
     if (!env.RESEND_API_KEY) return { ok: false, error: "RESEND_API_KEY missing" };
@@ -70,6 +125,7 @@ class ResendMailer implements MailerAdapter {
 
 const adapter: MailerAdapter =
   env.MAILER_DRIVER === "console" ? new ConsoleMailer() :
+  env.MAILER_DRIVER === "smtp"    ? new SmtpMailer() :
   env.MAILER_DRIVER === "resend"  ? new ResendMailer() :
   new FilesystemMailer();
 
