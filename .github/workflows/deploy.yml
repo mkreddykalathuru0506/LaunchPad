@@ -1,0 +1,61 @@
+name: Deploy to VPS
+
+# Local-build deploy (no GHCR). Runs scripts/deploy.sh on the VPS, which:
+#   • git fetch + reset --hard origin/main
+#   • docker compose build web
+#   • docker compose --profile tools run --rm migrate
+#   • docker compose up -d --remove-orphans
+#
+# Launch Pad lives behind ElvixIT's shared Caddy, so LP_COMPOSE_FILES forces
+# the shared-caddy overlay — otherwise deploy.sh would try to start its own
+# Caddy on :80/:443 and fight ElvixIT for the ports.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout (for sha reference only)
+        uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GIT_SHA: ${{ github.sha }}
+        with:
+          host: 187.77.1.245
+          port: 22
+          username: root
+          # Plain PEM private key — secret was re-added in raw form (no
+          # base64 wrapping). If you rotate it, paste the full
+          # -----BEGIN OPENSSH PRIVATE KEY----- … -----END … ----- block
+          # including trailing newline.
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GIT_SHA
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="/opt/launchpad"
+            # Launch Pad sits behind the ElvixIT shared Caddy on this VPS,
+            # so we always combine the base compose with the shared-caddy
+            # overlay. scripts/deploy.sh reads this env var.
+            export LP_COMPOSE_FILES="docker-compose.yml:docker-compose.shared-caddy.yml"
+            echo "── deploying $GIT_SHA to $DEPLOY_DIR (compose: $LP_COMPOSE_FILES) ──"
+            cd "$DEPLOY_DIR"
+            ./scripts/deploy.sh
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deploy failed. SSH into the VPS and run docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml logs -f web for details."
