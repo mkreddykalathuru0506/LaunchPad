@@ -52,6 +52,7 @@ COPY --from=build --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules
 COPY --from=build --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=deps  --chown=nextjs:nodejs /app/node_modules/argon2 ./node_modules/argon2
+COPY --from=deps  --chown=nextjs:nodejs /app/node_modules/nodemailer ./node_modules/nodemailer
 COPY --from=deps  --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Writable upload dir (mounted as a docker volume in production)
