@@ -8,13 +8,19 @@
 #   • Launch Pad does NOT spin up its own Caddy (already excluded by profile).
 #   • The `web` container joins the external `elvixit_default` network so the
 #     shared Caddy can resolve `launchpad-web:3000` over docker DNS.
+#   • The `web` alias is intentionally dropped on the shared network: ElvixIT's
+#     own `web` service also lives there and bare-`web` would round-robin
+#     between the two. Only `launchpad-web` (container name) is resolvable
+#     to this stack from the shared net.
 #   • Postgres stays on the private launchpad network only.
 
 services:
   web:
     networks:
-      - default
-      - shared
+      default: {}
+      shared:
+        aliases:
+          - launchpad-web
 
 networks:
   default:

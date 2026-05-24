@@ -21,6 +21,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Resource caps so a runaway query can't OOM a small shared VPS.
+    mem_limit: 512m
+    mem_reservation: 128m
 
   web:
     image: ghcr.io/mkreddykalathuru0506/launchpad-web:latest
@@ -49,6 +52,8 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 5
+    mem_limit: 768m
+    mem_reservation: 256m
 
   # Caddy is only launched in "standalone" mode. When deploying behind an
   # existing shared reverse proxy (e.g. on a multi-tenant VPS), omit this
