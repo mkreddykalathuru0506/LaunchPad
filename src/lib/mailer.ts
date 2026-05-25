@@ -136,6 +136,7 @@ export async function sendMail(mail: Mail): Promise<void> {
       toEmail: mail.to,
       fromEmail: env.MAILER_FROM,
       subject: mail.subject,
+      bodyHtml: mail.html,
       templateId: mail.templateId,
       status: result.ok ? "sent" : "failed",
       errorText: result.ok ? null : result.error ?? "unknown",
