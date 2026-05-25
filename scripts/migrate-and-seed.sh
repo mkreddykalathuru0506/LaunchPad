@@ -28,23 +28,21 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-log "Checking whether _prisma_migrations table exists"
-# `-tAc` -> tuples-only, unaligned, command. Empty output = no row.
-# `|| true` so a transient psql error doesn't kill the script before we can
-# log it; we re-check the value below.
-HAS_TABLE=$(psql "$DATABASE_URL" -tAc \
-  "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='_prisma_migrations'" \
-  2>/dev/null || true)
-
-if [ -z "$HAS_TABLE" ]; then
-  log "_prisma_migrations not found — baselining existing DB at $BASELINE_MIGRATION"
-  # `migrate resolve --applied` is idempotent on its own, but we only reach
-  # here when the table doesn't exist, so it will create the bookkeeping
-  # table and insert one row marking the migration as applied without
-  # running its SQL. The schema is presumed to already match.
-  npx prisma migrate resolve --applied "$BASELINE_MIGRATION"
+# Baseline the legacy migration. We used to gate this on a psql check for
+# `_prisma_migrations`, but the host/credentials path the script uses sometimes
+# disagrees with what Prisma itself sees (different schema search_path, etc.),
+# so the gate would say "no table, baseline!" and then prisma would say "P3008
+# already applied" and the script would die. Just attempt the resolve and
+# swallow P3008 as a no-op — idempotent both ways.
+log "Baseline-resolving legacy migration (P3008 = already-applied is a no-op)"
+if out=$(npx prisma migrate resolve --applied "$BASELINE_MIGRATION" 2>&1); then
+  log "  marked $BASELINE_MIGRATION as applied"
+elif printf '%s' "$out" | grep -q "P3008\|already recorded as applied"; then
+  log "  $BASELINE_MIGRATION already applied — skipping"
 else
-  log "_prisma_migrations exists — skipping baseline"
+  log "  ERROR resolving $BASELINE_MIGRATION:"
+  printf '%s\n' "$out"
+  exit 1
 fi
 
 log "Running prisma migrate deploy"
