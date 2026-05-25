@@ -33,8 +33,12 @@ echo "▸ git fetch + fast-forward"
 git fetch --tags --prune origin
 git reset --hard origin/main
 
-echo "▸ building web image"
+echo "▸ building web + migrate images"
+# Build BOTH services so the migrate container has the current schema.prisma.
+# (Previously only web was rebuilt; stale migrate images caused `prisma db push`
+# to see the wrong schema and try to drop newly-added columns. 2026-05-25.)
 "${DC[@]}" build web
+"${DC[@]}" --profile tools build migrate
 
 echo "▸ running migrations + seed (one-shot)"
 "${DC[@]}" --profile tools run --rm migrate
