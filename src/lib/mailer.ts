@@ -28,7 +28,6 @@ class ConsoleMailer implements MailerAdapter {
 class FilesystemMailer implements MailerAdapter {
   async send(mail: Mail) {
     const dir = "./outbox";
-    await fs.mkdir(dir, { recursive: true });
     const filename = `${Date.now()}-${mail.to.replace(/[^a-z0-9.@_-]/gi, "_")}.eml`;
     const content =
       `From: ${env.MAILER_FROM}\r\n` +
@@ -37,9 +36,18 @@ class FilesystemMailer implements MailerAdapter {
       `Content-Type: text/html; charset=utf-8\r\n` +
       `Date: ${new Date().toUTCString()}\r\n\r\n` +
       mail.html;
-    await fs.writeFile(join(dir, filename), content);
-    logger.info("email.filesystem", { file: filename, to: mail.to, subject: mail.subject });
-    return { ok: true };
+    // Don't let a bad outbox permission take down the email-send pipeline —
+    // we still want the EmailLog row (with bodyHtml) for traceability.
+    try {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(join(dir, filename), content);
+      logger.info("email.filesystem", { file: filename, to: mail.to, subject: mail.subject });
+      return { ok: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.warn("email.filesystem_failed", { to: mail.to, subject: mail.subject, error: msg });
+      return { ok: false, error: msg };
+    }
   }
 }
 
@@ -136,6 +144,7 @@ export async function sendMail(mail: Mail): Promise<void> {
       toEmail: mail.to,
       fromEmail: env.MAILER_FROM,
       subject: mail.subject,
+      bodyHtml: mail.html,
       templateId: mail.templateId,
       status: result.ok ? "sent" : "failed",
       errorText: result.ok ? null : result.error ?? "unknown",

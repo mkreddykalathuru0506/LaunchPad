@@ -31,6 +31,34 @@ export const tpl = {
        <p><a href="${env.APP_URL}/login" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Sign in to Launch Pad</a></p>`
     );
   },
+  candidateBgvInvite(opts: {
+    name: string;
+    candidateCode: string;
+    caseReference: string;
+    email: string;
+    tempPassword: string;
+    loginUrl: string;
+    magicLink: string;
+  }) {
+    return wrap(
+      `Start your background verification — ${opts.caseReference}`,
+      `<p>Hi ${opts.name},</p>
+       <p>The hiring team at ElvixIT has asked us to start your background verification on <b>Launch Pad</b>. Below are the details and credentials you'll need to sign in.</p>
+       <table cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:14px 0;font-size:13px">
+         <tr><td style="color:#64748b">Candidate ID</td><td><b>${opts.candidateCode}</b></td></tr>
+         <tr><td style="color:#64748b">Case reference</td><td><b>${opts.caseReference}</b></td></tr>
+         <tr><td style="color:#64748b">Login email</td><td><code>${opts.email}</code></td></tr>
+         <tr><td style="color:#64748b">Temporary password</td><td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${opts.tempPassword}</code></td></tr>
+       </table>
+       <p><b>Important:</b> this temporary password is shown only once in this email. You will be asked to change it the first time you sign in.</p>
+       <p style="margin:18px 0">
+         <a href="${opts.loginUrl}" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Sign in to Launch Pad</a>
+       </p>
+       <p style="color:#64748b;font-size:12px">Sign-in URL: <a href="${opts.loginUrl}">${opts.loginUrl}</a></p>
+       <p style="color:#64748b;font-size:12px">Trouble signing in? You can also use this one-time magic link (valid for 14 days): <a href="${opts.magicLink}">open Launch Pad</a>.</p>
+       <p style="color:#64748b;font-size:12px">If you didn't expect this email, please contact ${env.APP_SUPPORT_EMAIL}.</p>`
+    );
+  },
   stageSubmitted(reference: string, stage: string, candidate: string) {
     return wrap(
       `${stage} submitted: ${reference}`,

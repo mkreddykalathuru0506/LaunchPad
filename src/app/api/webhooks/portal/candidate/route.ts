@@ -24,6 +24,7 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
 import { randomToken } from "@/lib/crypto";
+import { randomBytes } from "node:crypto";
 import { sendMail } from "@/lib/mailer";
 import { tpl } from "@/lib/email-templates";
 
@@ -224,9 +225,28 @@ export async function POST(req: NextRequest) {
   });
 
   if (existing) {
-    // Issue a fresh magic-link so the portal can hand back a working invite,
-    // but do NOT recreate anything.
-    const magicLink = await issueMagicLink(existing.candidate.user.email);
+    // Re-issue: rotate the candidate's temp password and re-send the invite
+    // email so the most recent email a candidate has is always one with
+    // working credentials. (The previous temp password — if it hadn't been
+    // changed yet — is invalidated.) Also issue a fresh magic link for the
+    // fallback path in the email.
+    const reCandidateEmail = existing.candidate.user.email;
+    const reTempPassword = randomBytes(9).toString("base64url");
+    const reHash = await hash(reTempPassword);
+    await db.user.update({
+      where: { email: reCandidateEmail },
+      data: { passwordHash: reHash, mustChangePassword: true },
+    });
+    const magicLink = await issueMagicLink(reCandidateEmail);
+    await sendInviteEmail({
+      to: reCandidateEmail,
+      name: data.fullName,
+      candidateCode: data.candidateRef.code,
+      caseReference: existing.reference,
+      tempPassword: reTempPassword,
+      magicLink,
+      caseId: existing.id,
+    });
     logger.info("portal_webhook.existing", {
       deliveryId,
       caseId: existing.id,
@@ -242,18 +262,32 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Create User (upsert by email — candidate may already exist for other reasons).
+  //    Generate a fresh strong temporary password (12 chars base64url ≈ 72 bits).
+  //    We only ever hold the plaintext in this request scope — it's bcrypt/argon2-
+  //    hashed for storage, surfaced ONCE in the invite email, then dropped on the
+  //    floor. We never log it, and `mustChangePassword=true` forces the candidate
+  //    to rotate it on first sign-in (see /me/change-password).
   const emailLower = data.email.toLowerCase();
-  const tempPassword = randomToken(8);
+  const tempPassword = randomBytes(9).toString("base64url"); // 12 chars
   const passwordHash = await hash(tempPassword);
   const name = splitName(data.fullName);
 
   const user = await db.user.upsert({
     where: { email: emailLower },
-    update: { name: data.fullName },
+    // If the user already existed (re-invite, manual case → portal handoff,
+    // etc.) we deliberately reset the password to the new temp one so the
+    // candidate can always log in using the credentials in the email they
+    // just received. The previous password (if any) is invalidated.
+    update: {
+      name: data.fullName,
+      passwordHash,
+      mustChangePassword: true,
+    },
     create: {
       email: emailLower,
       name: data.fullName,
       passwordHash,
+      mustChangePassword: true,
       role: Role.CANDIDATE,
       emailVerified: new Date(),
     },
@@ -304,6 +338,18 @@ export async function POST(req: NextRequest) {
       });
     }
     const magicLink = await issueMagicLink(user.email);
+    // Send the invite — the user.upsert above already rotated the password +
+    // set mustChangePassword=true, so the freshly-emailed credentials match
+    // what's in the DB.
+    await sendInviteEmail({
+      to: user.email,
+      name: data.fullName,
+      candidateCode: data.candidateRef.code,
+      caseReference: candidateExistingCase.reference,
+      tempPassword,
+      magicLink,
+      caseId: candidateExistingCase.id,
+    });
     await audit({
       caseId: candidateExistingCase.id,
       action: "portal_webhook.linked",
@@ -343,12 +389,17 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 9. Magic link + invite email.
+  // 9. Magic link (kept as a fallback) + invite email.
+  //    The email surfaces the temp password + login URL as the PRIMARY login
+  //    path — magic link is a backup so we don't lock the candidate out if
+  //    they paste the password wrong.
   const magicLink = await issueMagicLink(user.email);
   await sendInviteEmail({
     to: user.email,
     name: data.fullName,
-    reference: kase.reference,
+    candidateCode: data.candidateRef.code,
+    caseReference: kase.reference,
+    tempPassword,
     magicLink,
     caseId: kase.id,
   });
@@ -401,26 +452,29 @@ async function issueMagicLink(email: string): Promise<string> {
 async function sendInviteEmail(opts: {
   to: string;
   name: string;
-  reference: string;
+  candidateCode: string;
+  caseReference: string;
+  tempPassword: string;
   magicLink: string;
   caseId: string;
 }) {
-  // Reuse the standard email envelope (tpl.magicLink wraps in Launch Pad branding)
-  // but customize the body for BGV onboarding.
-  const body = `<p>Hi ${opts.name},</p>
-       <p>The hiring team at ElvixIT has asked us to start your background verification on <b>Launch Pad</b>.</p>
-       <p><b>Case reference:</b> ${opts.reference}</p>
-       <p>Click the secure link below to sign in and begin. The link is valid for 14 days; you can request a new one from the sign-in page if it expires.</p>
-       <p><a href="${opts.magicLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Start my background verification</a></p>
-       <p style="color:#64748b;font-size:12px">If you didn't expect this email, please contact ${env.APP_SUPPORT_EMAIL}.</p>`;
-
-  // tpl.magicLink doesn't take a reference, so build directly via the same
-  // wrapper style. We pass through sendMail so it gets logged in EmailLog.
-  const html = wrapBrandedEmail(`Start your background verification — ${opts.reference}`, body);
+  // NOTE on logging: opts.tempPassword is intentionally NEVER passed to logger
+  // or audit metadata. It's surfaced ONLY in the email body (which is then
+  // persisted in EmailLog.bodyHtml — see lib/mailer.ts; treat that column as
+  // PII).
+  const html = tpl.candidateBgvInvite({
+    name: opts.name,
+    candidateCode: opts.candidateCode,
+    caseReference: opts.caseReference,
+    email: opts.to,
+    tempPassword: opts.tempPassword,
+    loginUrl: `${env.APP_URL}/login`,
+    magicLink: opts.magicLink,
+  });
   try {
     await sendMail({
       to: opts.to,
-      subject: "Complete your background verification — ElvixIT",
+      subject: `Complete your background verification — ${opts.caseReference} (Candidate ${opts.candidateCode})`,
       html,
       templateId: "portal.bgv.invite",
       caseId: opts.caseId,
@@ -432,27 +486,4 @@ async function sendInviteEmail(opts: {
       error: e instanceof Error ? e.message : String(e),
     });
   }
-}
-
-function wrapBrandedEmail(title: string, body: string): string {
-  // Inline the same envelope used by lib/email-templates.ts so the look matches.
-  // Kept here (rather than exported from email-templates) to avoid widening
-  // that file's public surface for one consumer.
-  return `<!doctype html>
-<html><head><meta charset="utf-8"><title>${title}</title></head>
-<body style="font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;padding:32px 0;margin:0">
-  <table align="center" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
-    <tr><td style="padding:24px 28px;border-bottom:1px solid #e2e8f0">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-block;width:28px;height:28px;background:#6366f1;border-radius:6px"></span>
-        <strong style="font-size:14px">Launch Pad</strong>
-        <span style="margin-left:auto;font-size:11px;color:#64748b;letter-spacing:.08em;text-transform:uppercase">ElvixIT · BGV</span>
-      </div>
-    </td></tr>
-    <tr><td style="padding:24px 28px;font-size:14px;line-height:1.6;color:#0f172a">${body}</td></tr>
-    <tr><td style="padding:18px 28px;background:#f8fafc;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0">
-      You're receiving this because the hiring team initiated a background check for you. Questions? Contact ${env.APP_SUPPORT_EMAIL}.
-    </td></tr>
-  </table>
-</body></html>`;
 }

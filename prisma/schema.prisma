@@ -69,6 +69,12 @@ model User {
   name          String?
   image         String?
   passwordHash  String?
+  // When true, the user must change their password before they can use the
+  // app. Set by the portal-webhook receiver when provisioning a candidate with
+  // a server-generated temp password — the candidate is forced through
+  // /me/change-password on first successful sign-in. Cleared on successful
+  // password change.
+  mustChangePassword Boolean @default(false)
   role          Role      @default(CANDIDATE)
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -433,6 +439,11 @@ model EmailLog {
   toEmail    String
   fromEmail  String
   subject    String
+  // Persisted body of the email as actually sent. Used for integration
+  // smoke tests that need to look up a generated temp password or magic
+  // link inside the body — and as an operational audit trail. PII-sensitive,
+  // so beware when exposing this surface outside of admin tooling.
+  bodyHtml   String?  @db.Text
   templateId String?
   status     String   // sent | failed | queued
   errorText  String?

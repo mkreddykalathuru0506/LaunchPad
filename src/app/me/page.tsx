@@ -51,6 +51,19 @@ function timelineTone(s: StageStatus): TimelineItem["tone"] {
 
 export default async function CandidateDashboard() {
   const session = await requireRole("CANDIDATE");
+
+  // Force temp-password rotation before showing the dashboard. The
+  // change-password page is itself under /me/ but renders OUTSIDE this gate
+  // because that page calls requireRole() but does its own logic.
+  const u = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { mustChangePassword: true },
+  });
+  if (u?.mustChangePassword) {
+    const { redirect } = await import("next/navigation");
+    redirect("/me/change-password");
+  }
+
   const cand = await getCaseForCandidate(session.user.id);
 
   if (!cand?.case) {

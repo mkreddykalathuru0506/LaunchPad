@@ -10,7 +10,9 @@ import { Loader2 } from "lucide-react";
 export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: string; error?: string }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [email, setEmail] = useState("");
+  const hint = params.get("hint") ?? "";
+  const changed = params.get("changed") === "1";
+  const [email, setEmail] = useState(hint);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -61,6 +63,11 @@ export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: 
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
+        </div>
+      )}
+      {changed && !error && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          Your password was updated. Please sign in with the new password.
         </div>
       )}
       <Button type="submit" className="w-full" disabled={pending}>
