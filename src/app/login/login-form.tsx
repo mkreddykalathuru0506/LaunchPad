@@ -74,15 +74,6 @@ export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: 
         {pending && <Loader2 className="h-4 w-4 animate-spin" />}
         Sign in
       </Button>
-      <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-        <div className="font-medium text-foreground">Demo accounts (password: <code>Passw0rd!</code>)</div>
-        <ul className="mt-1 space-y-0.5">
-          <li>admin@elivixit.com</li>
-          <li>manager@elivixit.com</li>
-          <li>verifier1@elivixit.com</li>
-          <li>bella@example.com (candidate)</li>
-        </ul>
-      </div>
     </form>
   );
 }

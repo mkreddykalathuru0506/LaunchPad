@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGrid } from "@/components/stage/fields";
 import { Button } from "@/components/ui/button";
-import { upsertUser, deactivateUser } from "@/server/actions/admin";
+import { upsertUser, deactivateUser, activateUser, deleteUser } from "@/server/actions/admin";
 import { formatDateTime, roleLabels } from "@/lib/utils";
 
 export default async function UsersPage() {
@@ -54,12 +54,23 @@ export default async function UsersPage() {
                   <TD><Badge tone={u.active ? "success" : "neutral"}>{u.active ? "Active" : "Disabled"}</Badge></TD>
                   <TD className="text-muted-foreground">{formatDateTime(u.createdAt)}</TD>
                   <TD>
-                    {u.active && (
-                      <form action={deactivateUser}>
+                    <div className="flex items-center gap-2">
+                      {u.active ? (
+                        <form action={deactivateUser}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <Button type="submit" variant="ghost" size="sm">Deactivate</Button>
+                        </form>
+                      ) : (
+                        <form action={activateUser}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <Button type="submit" variant="ghost" size="sm">Activate</Button>
+                        </form>
+                      )}
+                      <form action={deleteUser}>
                         <input type="hidden" name="id" value={u.id} />
-                        <Button type="submit" variant="ghost" size="sm">Deactivate</Button>
+                        <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10">Delete</Button>
                       </form>
-                    )}
+                    </div>
                   </TD>
                 </TR>
               ))}
