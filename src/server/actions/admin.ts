@@ -59,6 +59,31 @@ export async function deactivateUser(formData: FormData) {
   revalidatePath("/admin/users");
 }
 
+export async function activateUser(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const id = formData.get("id")?.toString();
+  if (!id) return;
+  await db.user.update({ where: { id }, data: { active: true } });
+  await audit({ actorId: session.user.id, action: "user.activated", target: id });
+  revalidatePath("/admin/users");
+}
+
+export async function deleteUser(formData: FormData) {
+  const session = await requireRole("ADMIN");
+  const id = formData.get("id")?.toString();
+  if (!id) return;
+  // Self-delete guard — an admin clicking Delete on their own row would
+  // immediately invalidate their session and lock them out.
+  if (id === session.user.id) {
+    throw new Error("You cannot delete your own account. Ask another admin to do it.");
+  }
+  // Audit BEFORE the delete: once the user row is gone, the cascade
+  // wipes their child records but we still want a record of who/when.
+  await audit({ actorId: session.user.id, action: "user.deleted", target: id });
+  await db.user.delete({ where: { id } });
+  revalidatePath("/admin/users");
+}
+
 const settingsSchema = z.object({
   appName: z.string().min(1),
   brandColor: z.string().min(4),
