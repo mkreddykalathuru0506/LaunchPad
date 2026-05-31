@@ -49,12 +49,18 @@ interface PortalCandidatePayload {
 }
 
 const VALID_STAGE_TYPES = new Set<string>(Object.values(StageType));
+// Canonical 8-stage onboarding set — kept in line with createCase (case.ts),
+// the seed, and Settings.defaultStages. PHOTO/VIDEO/REFERENCE were previously
+// omitted here, leaving portal-created cases short of the canonical set.
 const DEFAULT_STAGES: StageType[] = [
   StageType.IDENTITY,
   StageType.ADDRESS,
   StageType.EDUCATION,
   StageType.EMPLOYMENT,
   StageType.CRIMINAL,
+  StageType.PHOTO,
+  StageType.VIDEO,
+  StageType.REFERENCE,
 ];
 
 function isNonEmptyString(v: unknown): v is string {
@@ -225,29 +231,44 @@ export async function POST(req: NextRequest) {
   });
 
   if (existing) {
-    // Re-issue: rotate the candidate's temp password and re-send the invite
-    // email so the most recent email a candidate has is always one with
-    // working credentials. (The previous temp password — if it hadn't been
-    // changed yet — is invalidated.) Also issue a fresh magic link for the
-    // fallback path in the email.
+    // Idempotency for retried/duplicate webhook deliveries: ONLY rotate the
+    // temp password + re-send the invite while the candidate still has unused
+    // temp credentials (mustChangePassword === true). Once they've signed in
+    // and set their own password, a redelivery must NOT mint a fresh temp
+    // password email (which would invalidate their working password and spam
+    // them). We still always return action:"existing".
     const reCandidateEmail = existing.candidate.user.email;
-    const reTempPassword = randomBytes(9).toString("base64url");
-    const reHash = await hash(reTempPassword);
-    await db.user.update({
-      where: { email: reCandidateEmail },
-      data: { passwordHash: reHash, mustChangePassword: true },
-    });
-    const magicLink = await issueMagicLink(reCandidateEmail);
-    await sendInviteEmail({
-      to: reCandidateEmail,
-      name: data.fullName,
-      candidateCode: data.candidateRef.code,
-      caseReference: existing.reference,
-      tempPassword: reTempPassword,
-      magicLink,
-      caseId: existing.id,
-    });
-    logger.info("portal_webhook.existing", {
+    if (existing.candidate.user.mustChangePassword) {
+      const reTempPassword = randomBytes(9).toString("base64url");
+      const reHash = await hash(reTempPassword);
+      await db.user.update({
+        where: { email: reCandidateEmail },
+        data: { passwordHash: reHash, mustChangePassword: true },
+      });
+      const magicLink = await issueMagicLink(reCandidateEmail);
+      await sendInviteEmail({
+        to: reCandidateEmail,
+        name: data.fullName,
+        candidateCode: data.candidateRef.code,
+        caseReference: existing.reference,
+        tempPassword: reTempPassword,
+        magicLink,
+        caseId: existing.id,
+      });
+      logger.info("portal_webhook.existing", {
+        deliveryId,
+        caseId: existing.id,
+        reference: existing.reference,
+      });
+      return NextResponse.json({
+        ok: true,
+        caseId: existing.id,
+        reference: existing.reference,
+        magicLink,
+        action: "existing",
+      });
+    }
+    logger.info("portal_webhook.existing.no_resend", {
       deliveryId,
       caseId: existing.id,
       reference: existing.reference,
@@ -256,7 +277,6 @@ export async function POST(req: NextRequest) {
       ok: true,
       caseId: existing.id,
       reference: existing.reference,
-      magicLink,
       action: "existing",
     });
   }
@@ -272,17 +292,25 @@ export async function POST(req: NextRequest) {
   const passwordHash = await hash(tempPassword);
   const name = splitName(data.fullName);
 
+  // Capture the prior credential state BEFORE the upsert overwrites it. A user
+  // who has already activated (mustChangePassword === false) must NOT have a
+  // fresh temp password minted on a retried/duplicate webhook delivery.
+  const priorUser = await db.user.findUnique({
+    where: { email: emailLower },
+    select: { mustChangePassword: true },
+  });
+  const rotateCredentials = !priorUser || priorUser.mustChangePassword;
+
   const user = await db.user.upsert({
     where: { email: emailLower },
-    // If the user already existed (re-invite, manual case → portal handoff,
-    // etc.) we deliberately reset the password to the new temp one so the
-    // candidate can always log in using the credentials in the email they
-    // just received. The previous password (if any) is invalidated.
-    update: {
-      name: data.fullName,
-      passwordHash,
-      mustChangePassword: true,
-    },
+    // If the user already existed (re-invite, manual case → portal handoff)
+    // AND still has unused temp credentials, reset the password to the new
+    // temp one so the candidate can always log in using the credentials in the
+    // email they just received. If they've already activated, leave their
+    // chosen password untouched so a redelivery doesn't lock them out / spam.
+    update: rotateCredentials
+      ? { name: data.fullName, passwordHash, mustChangePassword: true }
+      : { name: data.fullName },
     create: {
       email: emailLower,
       name: data.fullName,
@@ -337,29 +365,43 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    const magicLink = await issueMagicLink(user.email);
-    // Send the invite — the user.upsert above already rotated the password +
-    // set mustChangePassword=true, so the freshly-emailed credentials match
-    // what's in the DB.
-    await sendInviteEmail({
-      to: user.email,
-      name: data.fullName,
-      candidateCode: data.candidateRef.code,
-      caseReference: candidateExistingCase.reference,
-      tempPassword,
-      magicLink,
-      caseId: candidateExistingCase.id,
-    });
+    // Only re-send the invite (with the freshly-rotated temp password) while
+    // the candidate still has unused temp credentials. Once they've activated,
+    // a redelivery just backfills the portal link and returns the existing
+    // case without minting/emailing a new temp password.
+    if (rotateCredentials) {
+      const magicLink = await issueMagicLink(user.email);
+      await sendInviteEmail({
+        to: user.email,
+        name: data.fullName,
+        candidateCode: data.candidateRef.code,
+        caseReference: candidateExistingCase.reference,
+        tempPassword,
+        magicLink,
+        caseId: candidateExistingCase.id,
+      });
+      await audit({
+        caseId: candidateExistingCase.id,
+        action: "portal_webhook.linked",
+        metadata: { deliveryId, candidateRef: data.candidateRef },
+      });
+      return NextResponse.json({
+        ok: true,
+        caseId: candidateExistingCase.id,
+        reference: candidateExistingCase.reference,
+        magicLink,
+        action: "existing",
+      });
+    }
     await audit({
       caseId: candidateExistingCase.id,
       action: "portal_webhook.linked",
-      metadata: { deliveryId, candidateRef: data.candidateRef },
+      metadata: { deliveryId, candidateRef: data.candidateRef, resend: false },
     });
     return NextResponse.json({
       ok: true,
       caseId: candidateExistingCase.id,
       reference: candidateExistingCase.reference,
-      magicLink,
       action: "existing",
     });
   }
@@ -371,15 +413,53 @@ export async function POST(req: NextRequest) {
       : DEFAULT_STAGES;
   const reference = await generateReference();
 
-  const kase = await db.case.create({
-    data: {
-      reference,
-      candidateId: candidate.id,
-      requiredStages: stages,
-      portalCandidateKind: data.candidateRef.kind,
-      portalCandidateId: data.candidateRef.id,
-    },
-  });
+  let kase;
+  try {
+    kase = await db.case.create({
+      data: {
+        reference,
+        candidateId: candidate.id,
+        requiredStages: stages,
+        portalCandidateKind: data.candidateRef.kind,
+        portalCandidateId: data.candidateRef.id,
+      },
+    });
+  } catch (e) {
+    // Concurrent/redelivered webhook race: the @@unique on
+    // (portalCandidateKind, portalCandidateId) (or the candidateId unique on
+    // Case) rejects the second insert with P2002. Resolve gracefully to the
+    // already-created case instead of returning a 500.
+    if (e && typeof e === "object" && (e as { code?: string }).code === "P2002") {
+      const raced = await db.case.findFirst({
+        where: {
+          OR: [
+            {
+              portalCandidateKind: data.candidateRef.kind,
+              portalCandidateId: data.candidateRef.id,
+            },
+            { candidateId: candidate.id },
+          ],
+        },
+        select: { id: true, reference: true },
+      });
+      if (raced) {
+        const magicLink = await issueMagicLink(user.email);
+        logger.info("portal_webhook.create_race_resolved", {
+          deliveryId,
+          caseId: raced.id,
+          reference: raced.reference,
+        });
+        return NextResponse.json({
+          ok: true,
+          caseId: raced.id,
+          reference: raced.reference,
+          magicLink,
+          action: "existing",
+        });
+      }
+    }
+    throw e;
+  }
 
   for (const t of stages) {
     await db.stage.upsert({

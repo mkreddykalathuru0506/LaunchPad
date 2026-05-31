@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { randomToken } from "@/lib/crypto";
-import { StageStatus, StageType } from "@prisma/client";
+import { CaseStatus, Role, StageStatus, StageType } from "@prisma/client";
 import { generateClearedReport } from "@/server/pdf/cleared-report";
 import {
   emailCandidateCleared, emailCandidateRejected, emailStageCorrection,
@@ -61,6 +61,30 @@ export async function decideStage(formData: FormData) {
 
   const stage = await db.stage.findUnique({ where: { id: parsed.stageId }, include: { case: { include: { candidate: { include: { user: true } } } } } });
   if (!stage) throw new Error("Stage not found");
+
+  // State guard: refuse to decide a stage on an already-finalized case. Without
+  // this, a stale tab / double-submit could re-approve or re-reject a CLEARED /
+  // REJECTED / WITHDRAWN case and re-fire the terminal portal webhook.
+  const OPEN_STATUSES: CaseStatus[] = [
+    CaseStatus.DRAFT,
+    CaseStatus.IN_PROGRESS,
+    CaseStatus.AWAITING_REVIEW,
+    CaseStatus.NEEDS_CORRECTION,
+  ];
+  if (!OPEN_STATUSES.includes(stage.case.status)) {
+    throw new Error("Case is already finalized");
+  }
+
+  // Ownership guard: a VERIFIER may only decide a case assigned to them.
+  // MANAGER / ADMIN are exempt (they can act on any case). If the case has no
+  // assigned verifier yet, any VERIFIER may pick it up.
+  if (
+    session.user.role === Role.VERIFIER &&
+    stage.case.assignedVerifierId &&
+    stage.case.assignedVerifierId !== session.user.id
+  ) {
+    throw new Error("You are not assigned to this case");
+  }
 
   await db.$transaction(async (tx) => {
     await tx.stage.update({
@@ -186,6 +210,15 @@ export async function addCaseNote(formData: FormData) {
 }
 
 export async function issueClearance(caseId: string, actorId: string) {
+  // Idempotency guard: if the case is already CLEARED, skip the report
+  // regeneration, the clearance emails, and (most importantly) the outbound
+  // portal webhook so a re-run does not re-fire bgv.cleared.
+  const existing = await db.case.findUnique({
+    where: { id: caseId },
+    select: { status: true },
+  });
+  if (existing?.status === CaseStatus.CLEARED) return;
+
   const path = await generateClearedReport(caseId);
   await db.case.update({ where: { id: caseId }, data: { clearedReportPath: path, status: "CLEARED", clearedAt: new Date() } });
   const c = await db.case.findUnique({
