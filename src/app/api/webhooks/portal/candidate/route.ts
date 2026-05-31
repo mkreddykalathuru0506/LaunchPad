@@ -19,6 +19,7 @@ import {
   StageType,
   type Prisma,
 } from "@prisma/client";
+import { stagesForCandidateType } from "@/lib/stages";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -49,19 +50,6 @@ interface PortalCandidatePayload {
 }
 
 const VALID_STAGE_TYPES = new Set<string>(Object.values(StageType));
-// Canonical 8-stage onboarding set — kept in line with createCase (case.ts),
-// the seed, and Settings.defaultStages. PHOTO/VIDEO/REFERENCE were previously
-// omitted here, leaving portal-created cases short of the canonical set.
-const DEFAULT_STAGES: StageType[] = [
-  StageType.IDENTITY,
-  StageType.ADDRESS,
-  StageType.EDUCATION,
-  StageType.EMPLOYMENT,
-  StageType.CRIMINAL,
-  StageType.PHOTO,
-  StageType.VIDEO,
-  StageType.REFERENCE,
-];
 
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
@@ -407,10 +395,12 @@ export async function POST(req: NextRequest) {
   }
 
   // 8. Create the Case + Stages.
+  // Honor an explicit list from the portal; otherwise derive the set from the
+  // candidate type (interns drop EMPLOYMENT) so launchpad is the source of truth.
   const stages =
     data.requiredStages && data.requiredStages.length > 0
       ? data.requiredStages
-      : DEFAULT_STAGES;
+      : stagesForCandidateType(mapCandidateType(data.candidateType));
   const reference = await generateReference();
 
   let kase;
