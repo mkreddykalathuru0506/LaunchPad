@@ -1,5 +1,6 @@
 import { PrismaClient, Role, CandidateType, CaseStatus, StageType, StageStatus, DocumentKind, AddressType } from "@prisma/client";
 import { hash } from "argon2";
+import { stagesForCandidateType } from "../src/lib/stages";
 
 const prisma = new PrismaClient();
 
@@ -115,7 +116,7 @@ async function main() {
   ];
 
   for (const [i, c] of candidates.entries()) {
-    const stages: StageType[] = c.veteran ? [...defaultStages, StageType.VETERAN] : defaultStages;
+    const stages: StageType[] = stagesForCandidateType(c.type, c.veteran);
     const u = await prisma.user.upsert({
       where: { email: c.email },
       update: {},

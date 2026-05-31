@@ -8,7 +8,8 @@ import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { randomToken } from "@/lib/crypto";
 import { hash } from "argon2";
-import { Role, CandidateType, StageType } from "@prisma/client";
+import { Role, CandidateType } from "@prisma/client";
+import { stagesForCandidateType } from "@/lib/stages";
 import { emailCandidateInvited, emailVerifierAssigned } from "@/server/emails";
 
 const createSchema = z.object({
@@ -69,12 +70,8 @@ export async function createCase(formData: FormData) {
     },
   });
 
-  const defaultStages: StageType[] = [
-    StageType.IDENTITY, StageType.ADDRESS, StageType.EDUCATION,
-    StageType.EMPLOYMENT, StageType.CRIMINAL, StageType.PHOTO,
-    StageType.VIDEO, StageType.REFERENCE,
-  ];
-  const stages = parsed.requireVeteran === "on" ? [...defaultStages, StageType.VETERAN] : defaultStages;
+  // Required BGV stages by candidate type — interns drop EMPLOYMENT; veteran is additive.
+  const stages = stagesForCandidateType(parsed.candidateType, parsed.requireVeteran === "on");
 
   const count = await db.case.count();
   const reference = `LP-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
