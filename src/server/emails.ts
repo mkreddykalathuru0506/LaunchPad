@@ -118,10 +118,14 @@ export async function emailVerifierStageSubmitted(opts: {
     where: { id: opts.caseId },
     include: { assignedVerifier: true, candidate: { include: { user: true } } },
   });
-  if (!c?.assignedVerifier?.email) return;
+  if (!c) return;
+  // Fall back to the BGV ops inbox when no verifier is assigned yet (the normal
+  // state for a freshly portal-created case) so bgv@ is always notified on a
+  // candidate stage submit instead of the notification being silently dropped.
+  const to = c.assignedVerifier?.email ?? env.APP_SUPPORT_EMAIL;
   const candidateName = c.candidate.user.name ?? c.candidate.user.email;
   await safeSend({
-    to: c.assignedVerifier.email,
+    to,
     subject: `[Launch Pad] ${stageLabels[opts.stage]} submitted — ${c.reference}`,
     html: tpl.stageSubmitted(c.reference, stageLabels[opts.stage], candidateName).replace(
       "/work/case",
