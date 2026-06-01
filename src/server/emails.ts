@@ -9,6 +9,7 @@ import { randomToken } from "@/lib/crypto";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { stageLabels } from "@/lib/utils";
+import { notifyStageSubmitted } from "@/server/notify";
 import { StageType } from "@prisma/client";
 
 async function safeSend(mail: Parameters<typeof sendMail>[0]) {
@@ -133,6 +134,12 @@ export async function emailVerifierStageSubmitted(opts: {
     ),
     templateId: "stage.submitted",
     caseId: c.id,
+  });
+  // In-app bell for the BGV desk (the email above can be missed / unassigned).
+  await notifyStageSubmitted(c.id, {
+    stageLabel: stageLabels[opts.stage],
+    candidateName,
+    reference: c.reference,
   });
 }
 
