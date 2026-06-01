@@ -35,7 +35,21 @@ export default async function UsersPage() {
                   <input id="active" name="active" type="checkbox" defaultChecked className="h-4 w-4" /> Yes
                 </label>
               </Field>
+              <Field label="Candidate type" htmlFor="candidateType">
+                <select id="candidateType" name="candidateType" className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+                  <option value="CANDIDATE">Candidate (full-time)</option>
+                  <option value="INTERN">Intern</option>
+                  <option value="TRAINER">Trainer</option>
+                  <option value="CONTRACTOR">Contractor</option>
+                </select>
+              </Field>
+              <Field label="Position title" htmlFor="positionTitle">
+                <Input id="positionTitle" name="positionTitle" placeholder="e.g. Software Engineer Intern" />
+              </Field>
             </FieldGrid>
+            <p className="text-xs text-muted-foreground">
+              Choosing role <strong>Candidate</strong> opens their background-verification case automatically — they’ll get an invite email and can fill every stage on first login. The candidate type / position fields are used only for candidates. For a full case (verifier, start date, veteran stage) use <a href="/team/new" className="underline">New case</a>.
+            </p>
             <div className="flex justify-end"><Button type="submit">Create user</Button></div>
           </form>
         </CardContent>

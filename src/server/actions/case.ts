@@ -2,14 +2,10 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { audit } from "@/lib/audit";
-import { env } from "@/lib/env";
-import { randomToken } from "@/lib/crypto";
-import { hash } from "argon2";
-import { Role, CandidateType } from "@prisma/client";
-import { stagesForCandidateType } from "@/lib/stages";
+import { CandidateType } from "@prisma/client";
+import { provisionCandidateCase } from "@/server/provision";
 import { emailCandidateInvited, emailVerifierAssigned } from "@/server/emails";
 
 const createSchema = z.object({
@@ -36,67 +32,19 @@ export async function createCase(formData: FormData) {
     assignedVerifierId: formData.get("assignedVerifierId")?.toString() || undefined,
   });
 
-  const tempPassword = randomToken(8);
-  const passwordHash = await hash(tempPassword);
-
-  const user = await db.user.upsert({
-    where: { email: parsed.email.toLowerCase() },
-    update: { name: parsed.name },
-    create: {
-      email: parsed.email.toLowerCase(),
-      name: parsed.name,
-      passwordHash,
-      role: Role.CANDIDATE,
-      emailVerified: new Date(),
-    },
+  const { user, kase, tempPassword } = await provisionCandidateCase({
+    email: parsed.email,
+    name: parsed.name,
+    candidateType: parsed.candidateType,
+    positionTitle: parsed.positionTitle,
+    hiringManager: parsed.hiringManager ?? null,
+    startDate: parsed.startDate ? new Date(parsed.startDate) : null,
+    requireVeteran: parsed.requireVeteran === "on",
+    assignedVerifierId: parsed.assignedVerifierId ?? null,
+    managedById: session.user.id,
   });
 
-  const candidate = await db.candidate.upsert({
-    where: { userId: user.id },
-    update: {
-      candidateType: parsed.candidateType,
-      positionTitle: parsed.positionTitle,
-      hiringManager: parsed.hiringManager ?? null,
-      startDate: parsed.startDate ? new Date(parsed.startDate) : null,
-      isVeteran: parsed.requireVeteran === "on",
-    },
-    create: {
-      userId: user.id,
-      candidateType: parsed.candidateType,
-      positionTitle: parsed.positionTitle,
-      hiringManager: parsed.hiringManager ?? null,
-      startDate: parsed.startDate ? new Date(parsed.startDate) : null,
-      isVeteran: parsed.requireVeteran === "on",
-    },
-  });
-
-  // Required BGV stages by candidate type — interns drop EMPLOYMENT; veteran is additive.
-  const stages = stagesForCandidateType(parsed.candidateType, parsed.requireVeteran === "on");
-
-  const count = await db.case.count();
-  const reference = `LP-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
-
-  const kase = await db.case.upsert({
-    where: { candidateId: candidate.id },
-    update: { assignedVerifierId: parsed.assignedVerifierId ?? null, requiredStages: stages },
-    create: {
-      reference,
-      candidateId: candidate.id,
-      requiredStages: stages,
-      assignedVerifierId: parsed.assignedVerifierId ?? null,
-      managedById: session.user.id,
-    },
-  });
-
-  for (const t of stages) {
-    await db.stage.upsert({
-      where: { caseId_type: { caseId: kase.id, type: t } },
-      update: {},
-      create: { caseId: kase.id, type: t },
-    });
-  }
-
-  await audit({ actorId: session.user.id, caseId: kase.id, action: "case.created", metadata: { reference } });
+  await audit({ actorId: session.user.id, caseId: kase.id, action: "case.created", metadata: { reference: kase.reference } });
 
   // Email candidate the invitation + temporary password
   await emailCandidateInvited({
