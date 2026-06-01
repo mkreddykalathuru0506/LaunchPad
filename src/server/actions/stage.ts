@@ -95,6 +95,102 @@ async function transitionCaseStatus(caseId: string) {
   await db.case.update({ where: { id: caseId }, data: { status } });
 }
 
+// ---------- DRAFTS (save progress without submitting) ----------
+
+// A draft can only be saved while the stage is still editable — never overwrite a
+// stage the candidate already submitted / a verifier is reviewing or approved.
+async function guardDraftable(caseId: string, type: StageType) {
+  const st = await db.stage.findUnique({
+    where: { caseId_type: { caseId, type } },
+    select: { status: true },
+  });
+  if (st && (st.status === "SUBMITTED" || st.status === "UNDER_REVIEW" || st.status === "APPROVED")) {
+    throw new Error("This stage is already submitted and can't be edited.");
+  }
+}
+
+// Map a draft file field to its document kind so an uploaded file is retained
+// (the same kinds the submit actions use).
+function draftDocKind(field: string): DocumentKind {
+  if (field === "idDocument") return DocumentKind.ID_PROOF;
+  if (field === "selfie") return DocumentKind.PHOTO_SELFIE;
+  if (field === "recording") return DocumentKind.VIDEO_RECORDING;
+  if (field === "discharge") return DocumentKind.VETERAN_DISCHARGE;
+  if (field.endsWith("_proof")) return DocumentKind.ADDRESS_PROOF;
+  if (field.includes("transcript")) return DocumentKind.EDUCATION_TRANSCRIPT;
+  if (field.includes("degreeDoc")) return DocumentKind.EDUCATION_DEGREE;
+  if (field.includes("offer")) return DocumentKind.EMPLOYMENT_OFFER;
+  if (field.includes("relieving")) return DocumentKind.EMPLOYMENT_RELIEVING;
+  if (field.includes("payslip")) return DocumentKind.EMPLOYMENT_PAYSLIP;
+  return DocumentKind.OTHER;
+}
+
+/**
+ * Generic "Save draft" — works for every stage. Dumps the entered text fields and
+ * persists any selected files (so documents survive the round-trip) into the
+ * stage's payload under `__draft`, keeping the stage editable (IN_PROGRESS). No
+ * validation, no verifier email/notification. The form prefills from `__draft`
+ * on return (see each stage page). A hidden `__stage` field names the stage.
+ */
+async function saveStageDraftImpl(formData: FormData) {
+  const s = await requireRole("CANDIDATE");
+  const { kase } = await getCandidateCase(s.user.id);
+  const type = (formData.get("__stage")?.toString() ?? "").toUpperCase() as StageType;
+  if (!type) throw new Error("Missing stage");
+  await guardDraftable(kase.id, type);
+
+  // These are encrypted at rest only on final submit — never persist them as
+  // plaintext in the draft payload. The candidate re-enters them when submitting.
+  const SENSITIVE = new Set(["dob", "documentNumber", "serviceNumber"]);
+
+  const fields: Record<string, string> = {};
+  const files: Record<string, { id: string; filename: string }> = {};
+  for (const [k, v] of formData.entries()) {
+    if (k === "__stage" || SENSITIVE.has(k)) continue;
+    if (typeof v === "string") {
+      if (v.trim()) fields[k] = v;
+    } else if (v instanceof File && v.size > 0) {
+      const doc = await storeFile(v, { kind: draftDocKind(k), caseId: kase.id });
+      if (doc) files[k] = { id: doc.id, filename: doc.filename };
+    }
+  }
+
+  // Merge with any earlier draft so a partial save never wipes prior fields/files,
+  // and preserve other payload keys.
+  const existing = await db.stage.findUnique({
+    where: { caseId_type: { caseId: kase.id, type } },
+    select: { payload: true },
+  });
+  const payload = (existing?.payload ?? {}) as Record<string, unknown>;
+  const priorDraft = (payload.__draft ?? {}) as { fields?: object; files?: object };
+  payload.__draft = {
+    fields: { ...(priorDraft.fields ?? {}), ...fields },
+    files: { ...(priorDraft.files ?? {}), ...files },
+    savedAt: new Date().toISOString(),
+  };
+
+  await upsertStage(kase.id, type, "IN_PROGRESS", payload);
+  await transitionCaseStatus(kase.id);
+}
+
+// Public draft action — redirects back to the stage with ?saved=1 (or ?err= on
+// failure). Errors/redirects with a NEXT_* digest pass through untouched.
+export async function saveStageDraft(formData: FormData): Promise<void> {
+  const type = (formData.get("__stage")?.toString() ?? "").toLowerCase();
+  const path = `/me/stage/${type}`;
+  try {
+    await saveStageDraftImpl(formData);
+  } catch (e) {
+    const digest = (e as { digest?: unknown } | null)?.digest;
+    if (typeof digest === "string" && (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND")) {
+      throw e;
+    }
+    const msg = e instanceof Error && e.message ? e.message : "Could not save your draft.";
+    redirect(`${path}?err=${encodeURIComponent(msg)}`);
+  }
+  redirect(`${path}?saved=1`);
+}
+
 // ---------- IDENTITY ----------
 
 const identitySchema = z.object({
