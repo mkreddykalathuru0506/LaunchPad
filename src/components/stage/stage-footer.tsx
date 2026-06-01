@@ -1,3 +1,4 @@
+"use client";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { saveStageDraft } from "@/server/actions/stage";
 import { StageType } from "@prisma/client";
