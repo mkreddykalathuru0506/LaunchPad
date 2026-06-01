@@ -2,12 +2,17 @@
 import { useState } from "react";
 import { Field, FieldGrid, FileField } from "@/components/stage/fields";
 import { Input } from "@/components/ui/input";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitEducationStage } from "@/server/actions/stage";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GraduationCap } from "lucide-react";
 
 type LevelKey = "SSC" | "Intermediate" | "Bachelor" | "Master" | "Diploma" | "PhD" | "Certification";
+
+export type EducationDraft = {
+  fields: Record<string, string>;
+  files: Record<string, { id: string; filename: string }>;
+};
 
 const REQUIRED_LEVELS: { key: LevelKey; title: string; subtitle: string; degreePlaceholder: string; boardPlaceholder: string; institutionPlaceholder: string; fieldPlaceholder: string }[] = [
   {
@@ -47,7 +52,7 @@ const OPTIONAL_LEVELS: { key: LevelKey; title: string }[] = [
 ];
 
 function EducationBlock({
-  i, level, title, subtitle, degreePlaceholder, boardPlaceholder, institutionPlaceholder, fieldPlaceholder, isRequired, onRemove,
+  i, level, title, subtitle, degreePlaceholder, boardPlaceholder, institutionPlaceholder, fieldPlaceholder, isRequired, onRemove, draft,
 }: {
   i: number;
   level: LevelKey;
@@ -59,7 +64,11 @@ function EducationBlock({
   fieldPlaceholder: string;
   isRequired: boolean;
   onRemove?: () => void;
+  draft?: EducationDraft;
 }) {
+  const f = (k: string) => draft?.fields[`edu_${i}_${k}`] ?? "";
+  const savedTranscript = draft?.files[`edu_${i}_transcript`];
+  const savedDegree = draft?.files[`edu_${i}_degreeDoc`];
   return (
     <div className="rounded-lg border p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -83,49 +92,52 @@ function EducationBlock({
 
       <FieldGrid>
         <Field label="Degree / Standard" htmlFor={`edu_${i}_degree`} required>
-          <Input id={`edu_${i}_degree`} name={`edu_${i}_degree`} placeholder={degreePlaceholder} required />
+          <Input id={`edu_${i}_degree`} name={`edu_${i}_degree`} placeholder={degreePlaceholder} required defaultValue={f("degree")} />
         </Field>
         <Field label={level === "SSC" || level === "Intermediate" ? "Board" : "University"} htmlFor={`edu_${i}_board`} required>
-          <Input id={`edu_${i}_board`} name={`edu_${i}_board`} placeholder={boardPlaceholder} required />
+          <Input id={`edu_${i}_board`} name={`edu_${i}_board`} placeholder={boardPlaceholder} required defaultValue={f("board")} />
         </Field>
         <Field label={level === "SSC" ? "School" : level === "Intermediate" ? "School / Junior college" : "College"} htmlFor={`edu_${i}_institution`} required className="sm:col-span-2">
-          <Input id={`edu_${i}_institution`} name={`edu_${i}_institution`} placeholder={institutionPlaceholder} required />
+          <Input id={`edu_${i}_institution`} name={`edu_${i}_institution`} placeholder={institutionPlaceholder} required defaultValue={f("institution")} />
         </Field>
         {level !== "SSC" && (
           <Field label={level === "Intermediate" ? "Stream" : "Specialization"} htmlFor={`edu_${i}_field`} required={level === "Intermediate" || level === "Bachelor"}>
-            <Input id={`edu_${i}_field`} name={`edu_${i}_field`} placeholder={fieldPlaceholder} required={level === "Intermediate" || level === "Bachelor"} />
+            <Input id={`edu_${i}_field`} name={`edu_${i}_field`} placeholder={fieldPlaceholder} required={level === "Intermediate" || level === "Bachelor"} defaultValue={f("field")} />
           </Field>
         )}
         <Field label="Hall ticket / Roll / Registration number" htmlFor={`edu_${i}_roll`} required>
-          <Input id={`edu_${i}_roll`} name={`edu_${i}_roll`} required />
+          <Input id={`edu_${i}_roll`} name={`edu_${i}_roll`} required defaultValue={f("roll")} />
         </Field>
         <Field label="Start year" htmlFor={`edu_${i}_startDate`} required>
-          <Input id={`edu_${i}_startDate`} name={`edu_${i}_startDate`} type="date" required />
+          <Input id={`edu_${i}_startDate`} name={`edu_${i}_startDate`} type="date" required defaultValue={f("startDate")} />
         </Field>
         <Field label="Year of passing" htmlFor={`edu_${i}_endDate`} required>
-          <Input id={`edu_${i}_endDate`} name={`edu_${i}_endDate`} type="date" required />
+          <Input id={`edu_${i}_endDate`} name={`edu_${i}_endDate`} type="date" required defaultValue={f("endDate")} />
         </Field>
         <Field label="Percentage / CGPA" htmlFor={`edu_${i}_gpa`} required>
-          <Input id={`edu_${i}_gpa`} name={`edu_${i}_gpa`} placeholder="e.g., 86.4% or 8.6 CGPA" required />
+          <Input id={`edu_${i}_gpa`} name={`edu_${i}_gpa`} placeholder="e.g., 86.4% or 8.6 CGPA" required defaultValue={f("gpa")} />
         </Field>
         <Field label="Registrar / Principal email" htmlFor={`edu_${i}_registrar`} hint="We may email the institution to verify.">
-          <Input id={`edu_${i}_registrar`} name={`edu_${i}_registrar`} type="email" />
+          <Input id={`edu_${i}_registrar`} name={`edu_${i}_registrar`} type="email" defaultValue={f("registrar")} />
         </Field>
         <FileField name={`edu_${i}_transcript`} label="Marksheet / consolidated marks memo" accept="image/*,.pdf"
-          hint={`Required. PDF, JPG, or PNG. Max 20 MB.`} />
+          hint={savedTranscript ? `Saved: ${savedTranscript.filename}. Re-select to replace.` : `Required. PDF, JPG, or PNG. Max 20 MB.`} />
         <FileField name={`edu_${i}_degreeDoc`} label={level === "SSC" || level === "Intermediate" ? "Passing certificate" : "Provisional / Degree certificate"} accept="image/*,.pdf"
-          hint="Required." />
+          hint={savedDegree ? `Saved: ${savedDegree.filename}. Re-select to replace.` : "Required."} />
       </FieldGrid>
     </div>
   );
 }
 
-export function EducationForm() {
-  const [extras, setExtras] = useState<LevelKey[]>([]);
-  const blocks: { key: LevelKey; index: number; required: boolean }[] = [
-    ...REQUIRED_LEVELS.map((l, idx) => ({ key: l.key, index: idx, required: true })),
-    ...extras.map((k, idx) => ({ key: k, index: REQUIRED_LEVELS.length + idx, required: false })),
-  ];
+export function EducationForm({ initial }: { initial?: EducationDraft }) {
+  // Restore any optional levels (index >= the 3 required) that were saved in a draft.
+  const restoredExtras: LevelKey[] = [];
+  for (let i = REQUIRED_LEVELS.length; ; i++) {
+    const lvl = initial?.fields[`edu_${i}_level`];
+    if (!lvl) break;
+    restoredExtras.push(lvl as LevelKey);
+  }
+  const [extras, setExtras] = useState<LevelKey[]>(restoredExtras);
 
   const addExtra = (lvl: LevelKey) => setExtras((cur) => [...cur, lvl]);
   const removeExtra = (idxInExtras: number) =>
@@ -153,6 +165,7 @@ export function EducationForm() {
           institutionPlaceholder={l.institutionPlaceholder}
           fieldPlaceholder={l.fieldPlaceholder}
           isRequired
+          draft={initial}
         />
       ))}
 
@@ -171,6 +184,7 @@ export function EducationForm() {
             fieldPlaceholder="Specialization"
             isRequired={false}
             onRemove={() => removeExtra(idxInExtras)}
+            draft={initial}
           />
         );
       })}
@@ -184,9 +198,7 @@ export function EducationForm() {
         ))}
       </div>
 
-      <div className="flex justify-end">
-        <SubmitButton>Submit education stage</SubmitButton>
-      </div>
+      <StageFormFooter stageType="EDUCATION" submitLabel="Submit education stage" />
     </form>
   );
 }

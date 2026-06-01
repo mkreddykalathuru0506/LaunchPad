@@ -3,6 +3,7 @@ import { hash } from "argon2";
 import { randomToken } from "@/lib/crypto";
 import { Role, CandidateType } from "@prisma/client";
 import { stagesForCandidateType } from "@/lib/stages";
+import { notifyBgvTeam } from "@/server/notify";
 
 export type ProvisionCandidateInput = {
   email: string;
@@ -90,6 +91,17 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
       where: { caseId_type: { caseId: kase.id, type: t } },
       update: {},
       create: { caseId: kase.id, type: t },
+    });
+  }
+
+  // Alert the BGV desk that a new candidate case exists (in-app bell). Only on
+  // first creation — re-running provisioning for an existing case shouldn't spam.
+  if (!existing) {
+    await notifyBgvTeam(kase.id, {
+      kind: "CASE_CREATED",
+      title: `New candidate — ${kase.reference}`,
+      body: `${input.name} was added for background verification. Their case is now open.`,
+      link: `/work/case/${kase.id}`,
     });
   }
 

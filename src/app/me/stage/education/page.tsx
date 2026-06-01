@@ -3,8 +3,9 @@ import { getCaseForCandidate } from "@/server/queries/case";
 import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { EducationForm } from "./education-form";
+import { draftFields, draftFiles } from "@/lib/stage-draft";
 
-export default async function EducationStagePage() {
+export default async function EducationStagePage({ searchParams }: { searchParams?: { err?: string; saved?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "EDUCATION") ?? null;
@@ -17,8 +18,8 @@ export default async function EducationStagePage() {
     : null;
 
   return (
-    <StageShell type="EDUCATION" stage={stage} lastCorrection={lastCorrection}>
-      <EducationForm />
+    <StageShell type="EDUCATION" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
+      <EducationForm initial={{ fields: draftFields(stage), files: draftFiles(stage) }} />
     </StageShell>
   );
 }

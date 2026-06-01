@@ -21,6 +21,7 @@ import {
 } from "@prisma/client";
 import { stagesForCandidateType } from "@/lib/stages";
 import { db } from "@/lib/db";
+import { notifyBgvTeam } from "@/server/notify";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
@@ -462,6 +463,14 @@ export async function POST(req: NextRequest) {
       create: { caseId: kase.id, type: t },
     });
   }
+
+  // Alert the BGV desk that the portal pushed a new candidate to verification.
+  await notifyBgvTeam(kase.id, {
+    kind: "CASE_CREATED",
+    title: `New candidate — ${kase.reference}`,
+    body: `${data.fullName} was moved to BGV from the hiring portal. Their case is now open.`,
+    link: `/work/case/${kase.id}`,
+  });
 
   // 9. Magic link (kept as a fallback) + invite email.
   //    The email surfaces the temp password + login URL as the PRIMARY login

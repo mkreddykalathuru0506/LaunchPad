@@ -4,8 +4,9 @@ import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { FileField, Field } from "@/components/stage/fields";
 import { Input } from "@/components/ui/input";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitVideoStage } from "@/server/actions/stage";
+import { draftFiles } from "@/lib/stage-draft";
 
 function phraseFor(seed: string) {
   const words = ["amber", "harbor", "violet", "anchor", "pelican", "river", "summit", "cedar"];
@@ -14,7 +15,7 @@ function phraseFor(seed: string) {
   return `${words[h % words.length]} ${words[(h >> 3) % words.length]} ${words[(h >> 6) % words.length]}`;
 }
 
-export default async function VideoStagePage() {
+export default async function VideoStagePage({ searchParams }: { searchParams?: { err?: string; saved?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "VIDEO") ?? null;
@@ -22,9 +23,10 @@ export default async function VideoStagePage() {
     ? await db.stageReview.findFirst({ where: { stageId: stage.id, decision: "NEEDS_CORRECTION" }, orderBy: { createdAt: "desc" }, include: { reviewer: true } })
     : null;
   const phrase = phraseFor(session.user.id);
+  const savedRecording = draftFiles(stage).recording;
 
   return (
-    <StageShell type="VIDEO" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="VIDEO" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
       <form action={submitVideoStage} className="space-y-6">
         <div className="rounded-lg border bg-muted/40 p-4 text-sm">
           <div className="font-semibold">Read this phrase aloud while recording:</div>
@@ -36,9 +38,10 @@ export default async function VideoStagePage() {
         </div>
         <FileField name="recording" label="Upload your recording" accept="video/*"
           hint="MP4 / MOV / WebM. Max 200 MB." />
-        <div className="flex justify-end">
-          <SubmitButton>Submit video stage</SubmitButton>
-        </div>
+        {savedRecording && (
+          <p className="text-sm text-muted-foreground">Saved in your draft: <span className="font-medium">{savedRecording.filename}</span>. Re-select only if you want to replace it.</p>
+        )}
+        <StageFormFooter stageType="VIDEO" submitLabel="Submit video stage" />
       </form>
     </StageShell>
   );
