@@ -67,7 +67,11 @@ function validatePayload(
     return { ok: false, error: "candidateRef.kind must be JOB or INTERNSHIP" };
   }
   if (!isNonEmptyString(ref.id)) return { ok: false, error: "candidateRef.id required" };
-  if (!isNonEmptyString(ref.code)) return { ok: false, error: "candidateRef.code required" };
+  // code is a human-readable display reference (shown in the invite email). It is
+  // NOT an idempotency key — the case is keyed on (kind, id). Older / partial
+  // callers (e.g. the internship handoff before it sent a code) may omit it, so
+  // fall back to the id rather than hard-rejecting the whole handoff with a 400.
+  const refCode = isNonEmptyString(ref.code) ? (ref.code as string) : (ref.id as string);
 
   if (!isNonEmptyString(o.fullName)) return { ok: false, error: "fullName required" };
   if (!isNonEmptyString(o.email)) return { ok: false, error: "email required" };
@@ -99,7 +103,7 @@ function validatePayload(
   return {
     ok: true,
     data: {
-      candidateRef: { kind: ref.kind, id: ref.id, code: ref.code },
+      candidateRef: { kind: ref.kind, id: ref.id, code: refCode },
       fullName: o.fullName,
       email: o.email,
       phone: optStr(o.phone),

@@ -5,9 +5,10 @@ import { hash } from "argon2";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { audit } from "@/lib/audit";
-import { Role } from "@prisma/client";
+import { Role, CandidateType } from "@prisma/client";
 import { randomToken } from "@/lib/crypto";
-import { emailUserWelcome } from "@/server/emails";
+import { emailUserWelcome, emailCandidateInvited } from "@/server/emails";
+import { provisionCandidateCase } from "@/server/provision";
 import { roleLabels } from "@/lib/utils";
 
 const upsertSchema = z.object({
@@ -16,6 +17,9 @@ const upsertSchema = z.object({
   name: z.string().min(1),
   role: z.nativeEnum(Role),
   active: z.string().optional(),
+  // Only consulted when role === CANDIDATE; defaults to a full-time candidate.
+  candidateType: z.nativeEnum(CandidateType).optional(),
+  positionTitle: z.string().optional(),
 });
 
 export async function upsertUser(formData: FormData) {
@@ -26,6 +30,8 @@ export async function upsertUser(formData: FormData) {
     name: formData.get("name"),
     role: formData.get("role"),
     active: formData.get("active")?.toString() || undefined,
+    candidateType: formData.get("candidateType")?.toString() || undefined,
+    positionTitle: formData.get("positionTitle")?.toString() || undefined,
   });
   if (parsed.id) {
     await db.user.update({
@@ -33,6 +39,32 @@ export async function upsertUser(formData: FormData) {
       data: { email: parsed.email.toLowerCase(), name: parsed.name, role: parsed.role, active: parsed.active === "on" },
     });
     await audit({ actorId: session.user.id, action: "user.updated", target: parsed.id });
+  } else if (parsed.role === Role.CANDIDATE) {
+    // A candidate login is useless without a BGV case to fill in — otherwise the
+    // candidate logs in and /me shows the empty "no active case yet" screen. So
+    // provision the Candidate + Case + stages up front (same path as /team/new)
+    // and send the case invitation rather than the generic welcome email.
+    const { user, kase, tempPassword } = await provisionCandidateCase({
+      email: parsed.email,
+      name: parsed.name,
+      candidateType: parsed.candidateType ?? CandidateType.CANDIDATE,
+      positionTitle: parsed.positionTitle ?? null,
+      managedById: session.user.id,
+    });
+    await audit({
+      actorId: session.user.id,
+      caseId: kase.id,
+      action: "case.created",
+      target: user.id,
+      metadata: { reference: kase.reference, via: "admin.users" },
+    });
+    await emailCandidateInvited({
+      to: user.email,
+      name: parsed.name,
+      reference: kase.reference,
+      tempPassword,
+      caseId: kase.id,
+    });
   } else {
     const tempPassword = randomToken(10);
     const passwordHash = await hash(tempPassword);
