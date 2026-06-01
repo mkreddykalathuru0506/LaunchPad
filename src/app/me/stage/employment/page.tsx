@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { EmploymentForm } from "./employment-form";
 
-export default async function EmploymentStagePage() {
+export default async function EmploymentStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "EMPLOYMENT") ?? null;
@@ -17,7 +17,7 @@ export default async function EmploymentStagePage() {
     : null;
 
   return (
-    <StageShell type="EMPLOYMENT" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="EMPLOYMENT" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <EmploymentForm />
     </StageShell>
   );

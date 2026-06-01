@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { ReferenceForm } from "./reference-form";
 
-export default async function ReferenceStagePage() {
+export default async function ReferenceStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "REFERENCE") ?? null;
@@ -17,7 +17,7 @@ export default async function ReferenceStagePage() {
     : null;
 
   return (
-    <StageShell type="REFERENCE" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="REFERENCE" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <ReferenceForm />
     </StageShell>
   );

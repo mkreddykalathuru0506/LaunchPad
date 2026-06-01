@@ -6,7 +6,7 @@ import { FileField } from "@/components/stage/fields";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitPhotoStage } from "@/server/actions/stage";
 
-export default async function PhotoStagePage() {
+export default async function PhotoStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "PHOTO") ?? null;
@@ -15,7 +15,7 @@ export default async function PhotoStagePage() {
     : null;
 
   return (
-    <StageShell type="PHOTO" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="PHOTO" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitPhotoStage} className="space-y-6">
         <ol className="ml-5 list-decimal space-y-1 text-sm text-muted-foreground">
           <li>Find a well-lit area with a plain background.</li>

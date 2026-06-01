@@ -14,7 +14,7 @@ function phraseFor(seed: string) {
   return `${words[h % words.length]} ${words[(h >> 3) % words.length]} ${words[(h >> 6) % words.length]}`;
 }
 
-export default async function VideoStagePage() {
+export default async function VideoStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "VIDEO") ?? null;
@@ -24,7 +24,7 @@ export default async function VideoStagePage() {
   const phrase = phraseFor(session.user.id);
 
   return (
-    <StageShell type="VIDEO" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="VIDEO" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitVideoStage} className="space-y-6">
         <div className="rounded-lg border bg-muted/40 p-4 text-sm">
           <div className="font-semibold">Read this phrase aloud while recording:</div>

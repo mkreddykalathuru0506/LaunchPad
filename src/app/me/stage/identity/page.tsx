@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitIdentityStage } from "@/server/actions/stage";
 
-export default async function IdentityStagePage() {
+export default async function IdentityStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "IDENTITY") ?? null;
@@ -21,7 +21,7 @@ export default async function IdentityStagePage() {
   const readOnly = stage?.status === "APPROVED" || stage?.status === "UNDER_REVIEW" || stage?.status === "SUBMITTED";
 
   return (
-    <StageShell type="IDENTITY" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="IDENTITY" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitIdentityStage} className="space-y-6">
         <FieldGrid>
           <Field label="Legal first name" htmlFor="legalFirstName" required>

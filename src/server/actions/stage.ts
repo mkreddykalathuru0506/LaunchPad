@@ -15,6 +15,31 @@ import {
 } from "@/server/emails";
 import { StageStatus, StageType, AddressType, DocumentKind, ConsentKind } from "@prisma/client";
 
+// Stage submit actions throw plain Errors on validation failure (missing
+// document, required field, etc.). Unwrapped, those throws hit the route error
+// boundary and render a generic "Something went wrong" page — Next strips the
+// real message in production. This wrapper catches the validation error and
+// redirects back to the same stage with the message in ?err= so the form shows
+// it inline. Next's own redirect()/notFound() control-flow errors carry a
+// NEXT_* digest and are re-thrown untouched.
+function withStageErrors(stagePath: string, fn: (formData: FormData) => Promise<void>) {
+  return async (formData: FormData): Promise<void> => {
+    try {
+      await fn(formData);
+    } catch (e) {
+      const digest = (e as { digest?: unknown } | null)?.digest;
+      if (typeof digest === "string" && (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND")) {
+        throw e;
+      }
+      const msg =
+        e instanceof Error && e.message
+          ? e.message
+          : "Could not save this stage. Please check the form and try again.";
+      redirect(`${stagePath}?err=${encodeURIComponent(msg)}`);
+    }
+  };
+}
+
 // ---------- helpers ----------
 
 async function getCandidateCase(userId: string) {
@@ -82,7 +107,7 @@ const identitySchema = z.object({
   nationality: z.string().min(2).max(60),
 });
 
-export async function submitIdentityStage(formData: FormData) {
+async function submitIdentityStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { cand, kase } = await getCandidateCase(s.user.id);
   const parsed = identitySchema.parse({
@@ -135,7 +160,7 @@ const addressSchema = z.object({
   fromDate: z.string().optional(),
 });
 
-export async function submitAddressStage(formData: FormData) {
+async function submitAddressStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
 
@@ -202,7 +227,7 @@ const educationItem = z.object({
 
 const REQUIRED_EDU_LEVELS = ["SSC", "Intermediate", "Bachelor"] as const;
 
-export async function submitEducationStage(formData: FormData) {
+async function submitEducationStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const rows: number[] = [];
@@ -332,7 +357,7 @@ const employmentItem = z.object({
   reasonForLeaving: z.string().optional(),
 });
 
-export async function submitEmploymentStage(formData: FormData) {
+async function submitEmploymentStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const rows: number[] = [];
@@ -400,7 +425,7 @@ const criminalSchema = z.object({
   declarations: z.string().optional(),
 });
 
-export async function submitCriminalStage(formData: FormData) {
+async function submitCriminalStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const parsed = criminalSchema.parse({
@@ -438,7 +463,7 @@ const veteranSchema = z.object({
   characterOfService: z.string().optional(),
 });
 
-export async function submitVeteranStage(formData: FormData) {
+async function submitVeteranStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const parsed = veteranSchema.parse({
@@ -474,7 +499,7 @@ export async function submitVeteranStage(formData: FormData) {
 
 // ---------- PHOTO ----------
 
-export async function submitPhotoStage(formData: FormData) {
+async function submitPhotoStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const selfie = formData.get("selfie") as File | null;
@@ -490,7 +515,7 @@ export async function submitPhotoStage(formData: FormData) {
 
 // ---------- VIDEO ----------
 
-export async function submitVideoStage(formData: FormData) {
+async function submitVideoStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const rec = formData.get("recording") as File | null;
@@ -516,7 +541,7 @@ const refItem = z.object({
   yearsKnown: z.string().optional(),
 });
 
-export async function submitReferenceStage(formData: FormData) {
+async function submitReferenceStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const rows: number[] = [];
@@ -559,3 +584,15 @@ export async function submitReferenceStage(formData: FormData) {
 }
 
 // (Stage submitted -> verifier notification lives in src/server/emails.ts)
+
+
+// Public stage actions — validation errors surface inline (see withStageErrors).
+export const submitIdentityStage = withStageErrors("/me/stage/identity", submitIdentityStageImpl);
+export const submitAddressStage = withStageErrors("/me/stage/address", submitAddressStageImpl);
+export const submitEducationStage = withStageErrors("/me/stage/education", submitEducationStageImpl);
+export const submitEmploymentStage = withStageErrors("/me/stage/employment", submitEmploymentStageImpl);
+export const submitCriminalStage = withStageErrors("/me/stage/criminal", submitCriminalStageImpl);
+export const submitVeteranStage = withStageErrors("/me/stage/veteran", submitVeteranStageImpl);
+export const submitPhotoStage = withStageErrors("/me/stage/photo", submitPhotoStageImpl);
+export const submitVideoStage = withStageErrors("/me/stage/video", submitVideoStageImpl);
+export const submitReferenceStage = withStageErrors("/me/stage/reference", submitReferenceStageImpl);

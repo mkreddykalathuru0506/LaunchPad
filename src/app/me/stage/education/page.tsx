@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { EducationForm } from "./education-form";
 
-export default async function EducationStagePage() {
+export default async function EducationStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "EDUCATION") ?? null;
@@ -17,7 +17,7 @@ export default async function EducationStagePage() {
     : null;
 
   return (
-    <StageShell type="EDUCATION" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="EDUCATION" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <EducationForm />
     </StageShell>
   );

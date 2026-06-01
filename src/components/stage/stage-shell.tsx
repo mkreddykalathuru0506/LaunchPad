@@ -3,14 +3,16 @@ import { Stage, StageType, StageStatus, StageReview, User } from "@prisma/client
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StageStatusBadge } from "@/components/ui/status-badge";
 import { stageLabels, stageBlurbs, formatDateTime } from "@/lib/utils";
-import { ArrowLeft, MessageSquareWarning } from "lucide-react";
+import { ArrowLeft, MessageSquareWarning, AlertCircle } from "lucide-react";
 
 export function StageShell({
-  type, stage, lastCorrection, children,
+  type, stage, lastCorrection, error, children,
 }: {
   type: StageType;
   stage?: Pick<Stage, "status" | "submittedAt" | "decidedAt"> | null;
   lastCorrection?: (StageReview & { reviewer: User | null }) | null;
+  /** Inline validation message from a failed submit (?err=) — see withStageErrors. */
+  error?: string;
   children: React.ReactNode;
 }) {
   const status: StageStatus = stage?.status ?? "NOT_STARTED";
@@ -31,6 +33,15 @@ export function StageShell({
           </div>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+              <div className="flex-1 text-sm">
+                <div className="font-medium">Couldn&apos;t save this stage</div>
+                <p className="mt-0.5 text-muted-foreground">{error}</p>
+              </div>
+            </div>
+          )}
           {status === "NEEDS_CORRECTION" && lastCorrection && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
               <MessageSquareWarning className="mt-0.5 h-4 w-4 text-warning-foreground" />

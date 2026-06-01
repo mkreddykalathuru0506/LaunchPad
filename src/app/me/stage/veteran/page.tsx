@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { submitVeteranStage } from "@/server/actions/stage";
 import { Empty } from "@/components/ui/empty";
 
-export default async function VeteranStagePage() {
+export default async function VeteranStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "VETERAN") ?? null;
@@ -20,7 +20,7 @@ export default async function VeteranStagePage() {
   }
 
   return (
-    <StageShell type="VETERAN" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="VETERAN" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitVeteranStage} className="space-y-6">
         <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
           Reporting veteran status is voluntary and protected under USERRA. Information is used only to

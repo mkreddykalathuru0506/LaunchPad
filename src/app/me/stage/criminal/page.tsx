@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { submitCriminalStage } from "@/server/actions/stage";
 
-export default async function CriminalStagePage() {
+export default async function CriminalStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "CRIMINAL") ?? null;
@@ -17,7 +17,7 @@ export default async function CriminalStagePage() {
     : null;
 
   return (
-    <StageShell type="CRIMINAL" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="CRIMINAL" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitCriminalStage} className="space-y-6">
         <div className="rounded-lg border bg-muted/40 p-4 text-sm">
           <div className="font-semibold">FCRA / DPDP Disclosure & Authorization</div>

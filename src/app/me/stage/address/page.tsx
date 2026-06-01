@@ -42,7 +42,7 @@ function AddressBlock({ kind, prefill }: { kind: "CURRENT" | "PERMANENT"; prefil
   );
 }
 
-export default async function AddressStagePage() {
+export default async function AddressStagePage({ searchParams }: { searchParams?: { err?: string } }) {
   const session = await requireRole("CANDIDATE");
   const cand = await getCaseForCandidate(session.user.id);
   const stage = cand?.case?.stages.find((s) => s.type === "ADDRESS") ?? null;
@@ -53,7 +53,7 @@ export default async function AddressStagePage() {
     : null;
 
   return (
-    <StageShell type="ADDRESS" stage={stage} lastCorrection={lastCorrection}>
+    <StageShell type="ADDRESS" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined}>
       <form action={submitAddressStage} className="space-y-6">
         <AddressBlock kind="CURRENT" prefill={current} />
         <AddressBlock kind="PERMANENT" prefill={permanent} />
