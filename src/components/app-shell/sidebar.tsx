@@ -151,11 +151,11 @@ function SidebarContent({
             Our verification team is on standby for any case-level questions.
           </p>
           <a
-            href="mailto:bgv@elivixit.com"
+            href="mailto:bgv@elvixit.com"
             className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-white hover:text-primary"
           >
             <Mail className="h-3.5 w-3.5" />
-            bgv@elivixit.com
+            bgv@elvixit.com
           </a>
         </div>
         {footer && <div className="mt-3">{footer}</div>}

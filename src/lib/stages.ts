@@ -21,7 +21,6 @@ export const EMPLOYEE_STAGES: StageType[] = [
   StageType.CRIMINAL,
   StageType.PHOTO,
   StageType.VIDEO,
-  StageType.REFERENCE,
 ];
 
 /** Interns skip EMPLOYMENT (7 stages). */

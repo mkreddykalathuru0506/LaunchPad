@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { tpl } from "@/lib/email-templates";
 import { env } from "@/lib/env";
-import { randomToken } from "@/lib/crypto";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { stageLabels } from "@/lib/utils";
@@ -164,43 +163,32 @@ export async function emailVerifierAssigned(opts: {
   });
 }
 
-// ───────────────────────── External outreach ─────────────────────────────────
-
-export async function emailReferenceOutreach(opts: { caseId: string }) {
-  const kase = await db.case.findUnique({
+// Consolidated "candidate finished everything" email — sent ONCE when the
+// candidate hits the final "Submit profile for BGV" action (per-stage verifier
+// emails are suppressed in favour of this single notification). Recipient is the
+// assigned verifier, falling back to the bgv@ ops inbox when unassigned.
+export async function emailProfileSubmittedForBgv(opts: { caseId: string }): Promise<void> {
+  const c = await db.case.findUnique({
     where: { id: opts.caseId },
-    include: { candidate: { include: { user: true } }, references: true },
+    include: { assignedVerifier: true, candidate: { include: { user: true } } },
   });
-  if (!kase) return;
-  const candName = kase.candidate.user.name ?? kase.candidate.user.email;
-  for (const ref of kase.references) {
-    if (ref.contacted) continue;
-    const token = randomToken(24);
-    // We piggyback on MagicLink to give the reference a single-use link.
-    await db.magicLink.create({
-      data: {
-        token,
-        caseId: kase.id,
-        stageType: "REFERENCE",
-        purpose: "REFERENCE_RESPONSE",
-        expiresAt: new Date(Date.now() + 21 * 86400_000),
-      },
-    });
-    const link = `${env.APP_URL}/reference/${token}`;
-    await safeSend({
-      to: ref.email,
-      subject: `Reference request for ${candName}`,
-      html: tpl.referenceOutreach(ref.name, candName, link, kase.reference),
-      templateId: "reference.outreach",
-      caseId: kase.id,
-    });
-    await db.reference.update({
-      where: { id: ref.id },
-      data: { contacted: true, contactedAt: new Date() },
-    });
-  }
-  await audit({ caseId: kase.id, action: "reference.outreach.sent", metadata: { count: kase.references.length } });
+  if (!c) return;
+  const to = c.assignedVerifier?.email ?? env.APP_SUPPORT_EMAIL;
+  const candidateName = c.candidate.user.name ?? c.candidate.user.email;
+  const workUrl = `${env.APP_URL}/work/case/${c.id}`;
+  await safeSend({
+    to,
+    subject: `Profile submitted for BGV — ${candidateName} (${c.reference})`,
+    html: `<p>Hi,</p>
+           <p><b>${candidateName}</b> has completed and submitted <b>all stages</b> for case <b>${c.reference}</b>.</p>
+           <p>The case is ready for review.</p>
+           <p><a href="${workUrl}">Open the verifier workspace</a></p>`,
+    templateId: "profile.submitted.bgv",
+    caseId: c.id,
+  });
 }
+
+// ───────────────────────── External outreach ─────────────────────────────────
 
 export async function emailRegistrarVerifications(opts: { caseId: string }) {
   const kase = await db.case.findUnique({
