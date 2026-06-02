@@ -495,7 +495,7 @@ model Settings {
   id                Int       @id @default(1)
   appName           String    @default("Launch Pad")
   brandColor        String    @default("#6366f1")
-  supportEmail      String    @default("bgv@elivixit.com")
+  supportEmail      String    @default("bgv@elvixit.com")
   defaultStages     StageType[] @default([IDENTITY, ADDRESS, EDUCATION, EMPLOYMENT, CRIMINAL, PHOTO, VIDEO, REFERENCE])
   slaHoursPerStage  Int       @default(72)
   updatedAt         DateTime  @updatedAt

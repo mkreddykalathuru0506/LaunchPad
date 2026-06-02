@@ -32,6 +32,8 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           GIT_SHA: ${{ github.sha }}
+          # Optional repo secret: seeds a permanent bgv@elvixit.com ADMIN login.
+          BGV_ADMIN_PASSWORD: ${{ secrets.BGV_ADMIN_PASSWORD }}
         with:
           host: 187.77.1.245
           port: 22
@@ -41,7 +43,7 @@ jobs:
           # -----BEGIN OPENSSH PRIVATE KEY----- … -----END … ----- block
           # including trailing newline.
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GIT_SHA
+          envs: GIT_SHA,BGV_ADMIN_PASSWORD
           command_timeout: 20m
           script_stop: true
           script: |

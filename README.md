@@ -56,9 +56,9 @@ Password for all seeded users: `Passw0rd!`
 
 | Role       | Email                       | What you can do                                                |
 |------------|-----------------------------|----------------------------------------------------------------|
-| Admin      | `admin@elivixit.com`        | Users, audit log, email log, settings                          |
-| Manager    | `manager@elivixit.com`      | Team dashboard, create cases, reassign verifiers, clear cases  |
-| Verifier   | `verifier1@elivixit.com`    | Review queue, approve / reject / request corrections           |
+| Admin      | `admin@elvixit.com`        | Users, audit log, email log, settings                          |
+| Manager    | `manager@elvixit.com`      | Team dashboard, create cases, reassign verifiers, clear cases  |
+| Verifier   | `verifier1@elvixit.com`    | Review queue, approve / reject / request corrections           |
 | Candidate  | `bella@example.com`         | A case in progress with several stages submitted               |
 | Candidate  | `deepa@example.com`         | A case with a NEEDS_CORRECTION stage (exercises magic link)    |
 | Candidate  | `eric@example.com`          | A fully cleared case (with veteran stage)                      |
