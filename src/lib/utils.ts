@@ -15,6 +15,8 @@ export const stageLabels: Record<StageType, string> = {
   VETERAN: "Veteran Status",
   PHOTO: "Photo Verification",
   VIDEO: "Video Verification",
+  // REFERENCE stage retired — kept here only because the Prisma StageType enum
+  // still declares it and Record<StageType, string> requires every key.
   REFERENCE: "Reference Check",
 };
 
@@ -27,6 +29,7 @@ export const stageBlurbs: Record<StageType, string> = {
   VETERAN: "Military service details (if applicable).",
   PHOTO: "Live selfie match against your ID photo.",
   VIDEO: "Recorded or live video identity check.",
+  // REFERENCE stage retired — see note on stageLabels above.
   REFERENCE: "Two to three professional references.",
 };
 

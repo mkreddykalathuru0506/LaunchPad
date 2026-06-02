@@ -33,7 +33,7 @@ const schema = z.object({
 
   APP_NAME: z.string().default("Launch Pad"),
   APP_BRAND_COLOR: z.string().default("#6366f1"),
-  APP_SUPPORT_EMAIL: z.string().email().default("bgv@elivixit.com"),
+  APP_SUPPORT_EMAIL: z.string().email().default("bgv@elvixit.com"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 

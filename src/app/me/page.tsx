@@ -13,11 +13,15 @@ import { Button } from "@/components/ui/button";
 import { stageLabels, stageBlurbs, progressPercent, formatDateTime } from "@/lib/utils";
 import {
   ArrowRight, ShieldAlert, Fingerprint, MapPin, GraduationCap, Briefcase,
-  FileSearch, Medal, Camera, Video, Users, Inbox, CheckCircle2, Clock, Sparkles,
+  FileSearch, Medal, Camera, Video, Inbox, CheckCircle2, Clock, Sparkles, ClipboardCheck,
 } from "lucide-react";
 import { StageType, StageStatus } from "@prisma/client";
+import { FlowFeedback } from "@/components/stage/flow-feedback";
 
-const stageIcon: Record<StageType, React.ReactNode> = {
+// REFERENCE is intentionally omitted — the reference stage is retired (kept in
+// the Prisma enum only). These maps are keyed by the *active* stage types, so a
+// Partial keeps TS happy without forcing a dead REFERENCE entry.
+const stageIcon: Partial<Record<StageType, React.ReactNode>> = {
   IDENTITY: <Fingerprint />,
   ADDRESS: <MapPin />,
   EDUCATION: <GraduationCap />,
@@ -26,10 +30,9 @@ const stageIcon: Record<StageType, React.ReactNode> = {
   VETERAN: <Medal />,
   PHOTO: <Camera />,
   VIDEO: <Video />,
-  REFERENCE: <Users />,
 };
 
-const stageRoute: Record<StageType, string> = {
+const stageRoute: Partial<Record<StageType, string>> = {
   IDENTITY: "/me/stage/identity",
   ADDRESS: "/me/stage/address",
   EDUCATION: "/me/stage/education",
@@ -38,7 +41,6 @@ const stageRoute: Record<StageType, string> = {
   VETERAN: "/me/stage/veteran",
   PHOTO: "/me/stage/photo",
   VIDEO: "/me/stage/video",
-  REFERENCE: "/me/stage/reference",
 };
 
 function timelineTone(s: StageStatus): TimelineItem["tone"] {
@@ -49,7 +51,11 @@ function timelineTone(s: StageStatus): TimelineItem["tone"] {
   return "neutral";
 }
 
-export default async function CandidateDashboard() {
+export default async function CandidateDashboard({
+  searchParams,
+}: {
+  searchParams?: { submitted?: string };
+}) {
   const session = await requireRole("CANDIDATE");
 
   // Force temp-password rotation before showing the dashboard. The
@@ -77,7 +83,8 @@ export default async function CandidateDashboard() {
   }
 
   const kase = cand.case;
-  const stages = kase.stages;
+  // Only render stages that have an active route (REFERENCE is retired).
+  const stages = kase.stages.filter((s) => stageRoute[s.type]);
   const approved = stages.filter((s) => s.status === "APPROVED").length;
   const pending = stages.filter((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW").length;
   const corrections = stages.filter((s) => s.status === "NEEDS_CORRECTION");
@@ -98,12 +105,25 @@ export default async function CandidateDashboard() {
 
   return (
     <div className="space-y-8">
+      {searchParams?.submitted === "1" && (
+        <FlowFeedback success="Thanks! Your profile has been sent to the BGV team. You'll be notified as it's reviewed." />
+      )}
+
       <SectionHeading
         as="h1"
         eyebrow={`Case ${kase.reference}`}
         title={`Welcome back, ${firstName}`}
         description={`${cand.positionTitle ?? "Onboarding"} · Start date ${cand.startDate ? new Date(cand.startDate).toLocaleDateString() : "TBD"}`}
-        actions={<CaseStatusBadge status={kase.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <CaseStatusBadge status={kase.status} />
+            <Button asChild size="sm">
+              <Link href="/me/review">
+                <ClipboardCheck className="h-3.5 w-3.5" /> Review &amp; submit
+              </Link>
+            </Button>
+          </div>
+        }
       />
 
       {corrections.length > 0 && (
@@ -120,7 +140,7 @@ export default async function CandidateDashboard() {
             </p>
           </div>
           <Button asChild size="sm" variant="warning">
-            <Link href={stageRoute[corrections[0]!.type]}>
+            <Link href={stageRoute[corrections[0]!.type]!}>
               Fix now <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
@@ -184,7 +204,7 @@ export default async function CandidateDashboard() {
               return (
                 <Link
                   key={s.id}
-                  href={stageRoute[s.type]}
+                  href={stageRoute[s.type]!}
                   className={`group relative overflow-hidden rounded-xl border bg-card p-4 transition-all hover:-translate-y-px hover:shadow-md ${
                     isCorrection ? "border-warning/50 ring-1 ring-warning/30" : "border-border/70 hover:border-primary/30"
                   }`}

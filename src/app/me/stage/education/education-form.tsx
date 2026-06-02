@@ -120,10 +120,10 @@ function EducationBlock({
         <Field label="Registrar / Principal email" htmlFor={`edu_${i}_registrar`} hint="We may email the institution to verify.">
           <Input id={`edu_${i}_registrar`} name={`edu_${i}_registrar`} type="email" defaultValue={f("registrar")} />
         </Field>
-        <FileField name={`edu_${i}_transcript`} label="Marksheet / consolidated marks memo" accept="image/*,.pdf"
-          hint={savedTranscript ? `Saved: ${savedTranscript.filename}. Re-select to replace.` : `Required. PDF, JPG, or PNG. Max 20 MB.`} />
-        <FileField name={`edu_${i}_degreeDoc`} label={level === "SSC" || level === "Intermediate" ? "Passing certificate" : "Provisional / Degree certificate"} accept="image/*,.pdf"
-          hint={savedDegree ? `Saved: ${savedDegree.filename}. Re-select to replace.` : "Required."} />
+        <FileField name={`edu_${i}_transcript`} label="Marksheet / consolidated marks memo (optional)" accept="image/*,.pdf"
+          hint={savedTranscript ? `Saved: ${savedTranscript.filename}. Re-select to replace.` : `Optional. PDF, JPG, or PNG. Max 20 MB.`} />
+        <FileField name={`edu_${i}_degreeDoc`} label={`${level === "SSC" || level === "Intermediate" ? "Passing certificate" : "Provisional / Degree certificate"} (optional)`} accept="image/*,.pdf"
+          hint={savedDegree ? `Saved: ${savedDegree.filename}. Re-select to replace.` : "Optional. PDF, JPG, or PNG. Max 20 MB."} />
       </FieldGrid>
     </div>
   );
@@ -148,8 +148,8 @@ export function EducationForm({ initial }: { initial?: EducationDraft }) {
       <div className="rounded-md border border-primary/30 bg-accent/40 p-3 text-sm">
         <div className="font-medium">India education verification</div>
         <p className="mt-0.5 text-muted-foreground">
-          SSC (10th), Intermediate (12th), and Degree details are mandatory. Each section requires the
-          marksheet and the passing/degree certificate.
+          SSC (10th), Intermediate (12th), and Degree details are mandatory. Uploading the
+          marksheet and the passing/degree certificate is optional.
         </p>
       </div>
 

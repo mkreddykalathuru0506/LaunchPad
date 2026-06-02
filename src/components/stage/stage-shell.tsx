@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StageStatusBadge } from "@/components/ui/status-badge";
 import { stageLabels, stageBlurbs, formatDateTime } from "@/lib/utils";
 import { ArrowLeft, MessageSquareWarning, AlertCircle, Save } from "lucide-react";
+import { FlowFeedback } from "@/components/stage/flow-feedback";
 
 export function StageShell({
   type, stage, lastCorrection, error, saved, children,
@@ -20,6 +21,9 @@ export function StageShell({
   const status: StageStatus = stage?.status ?? "NOT_STARTED";
   return (
     <div className="mx-auto max-w-3xl">
+      {/* Dismissible popup mirror of the inline error banner — closable so the
+          candidate can keep editing without losing their (draft-preserved) input. */}
+      <FlowFeedback error={error} />
       <Link href="/me" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> Back to dashboard
       </Link>

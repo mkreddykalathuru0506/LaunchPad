@@ -8,11 +8,13 @@ import { audit } from "@/lib/audit";
 import { storage } from "@/lib/storage";
 import { encryptString } from "@/lib/crypto";
 import {
-  emailVerifierStageSubmitted,
-  emailReferenceOutreach,
   emailRegistrarVerifications,
   emailEmployerVerifications,
+  emailProfileSubmittedForBgv,
 } from "@/server/emails";
+import { notifyStageSubmitted, notifyBgvTeam } from "@/server/notify";
+import { stagesForCandidateType } from "@/lib/stages";
+import { stageLabels } from "@/lib/utils";
 import { StageStatus, StageType, AddressType, DocumentKind, ConsentKind } from "@prisma/client";
 
 // Stage submit actions throw plain Errors on validation failure (missing
@@ -95,6 +97,24 @@ async function transitionCaseStatus(caseId: string) {
   await db.case.update({ where: { id: caseId }, data: { status } });
 }
 
+// Notify the BGV desk (in-app bell) that a stage was submitted. Loads the
+// candidate name + reference off the case and delegates to the shared helper.
+// Per-stage *emails* to the verifier are intentionally NOT sent here — the
+// verifier is emailed once at final "Submit profile for BGV".
+async function notifyStageSubmittedFor(caseId: string, type: StageType) {
+  const c = await db.case.findUnique({
+    where: { id: caseId },
+    include: { candidate: { include: { user: true } } },
+  });
+  if (!c) return;
+  const candidateName = c.candidate.user.name ?? c.candidate.user.email;
+  await notifyStageSubmitted(caseId, {
+    stageLabel: stageLabels[type],
+    candidateName,
+    reference: c.reference,
+  });
+}
+
 // ---------- DRAFTS (save progress without submitting) ----------
 
 // A draft can only be saved while the stage is still editable — never overwrite a
@@ -132,25 +152,30 @@ function draftDocKind(field: string): DocumentKind {
  * validation, no verifier email/notification. The form prefills from `__draft`
  * on return (see each stage page). A hidden `__stage` field names the stage.
  */
-async function saveStageDraftImpl(formData: FormData) {
-  const s = await requireRole("CANDIDATE");
-  const { kase } = await getCandidateCase(s.user.id);
-  const type = (formData.get("__stage")?.toString() ?? "").toUpperCase() as StageType;
-  if (!type) throw new Error("Missing stage");
-  await guardDraftable(kase.id, type);
+// Never persist these as plaintext in the draft payload — they're encrypted at
+// rest only on final submit. The candidate re-enters them when submitting.
+const DRAFT_SENSITIVE = new Set(["dob", "documentNumber", "serviceNumber"]);
 
-  // These are encrypted at rest only on final submit — never persist them as
-  // plaintext in the draft payload. The candidate re-enters them when submitting.
-  const SENSITIVE = new Set(["dob", "documentNumber", "serviceNumber"]);
-
+/**
+ * Persist whatever the candidate typed/selected into the stage's `__draft`
+ * payload so a FAILED submit (validation error → ?err= redirect) doesn't wipe
+ * the form. Shared by "Save draft" and called FIRST in every submit impl. Merges
+ * with any prior draft, excludes sensitive fields, and keeps the stage editable
+ * (IN_PROGRESS). Files are stored so uploads survive the round-trip too.
+ *
+ * NOTE: this writes the stage row to IN_PROGRESS. A submit impl that later
+ * succeeds upserts the stage to SUBMITTED, overwriting that; a submit that fails
+ * leaves the draft + IN_PROGRESS so the form re-fills.
+ */
+async function persistDraftFromForm(caseId: string, type: StageType, formData: FormData) {
   const fields: Record<string, string> = {};
   const files: Record<string, { id: string; filename: string }> = {};
   for (const [k, v] of formData.entries()) {
-    if (k === "__stage" || SENSITIVE.has(k)) continue;
+    if (k === "__stage" || DRAFT_SENSITIVE.has(k)) continue;
     if (typeof v === "string") {
       if (v.trim()) fields[k] = v;
     } else if (v instanceof File && v.size > 0) {
-      const doc = await storeFile(v, { kind: draftDocKind(k), caseId: kase.id });
+      const doc = await storeFile(v, { kind: draftDocKind(k), caseId });
       if (doc) files[k] = { id: doc.id, filename: doc.filename };
     }
   }
@@ -158,7 +183,7 @@ async function saveStageDraftImpl(formData: FormData) {
   // Merge with any earlier draft so a partial save never wipes prior fields/files,
   // and preserve other payload keys.
   const existing = await db.stage.findUnique({
-    where: { caseId_type: { caseId: kase.id, type } },
+    where: { caseId_type: { caseId, type } },
     select: { payload: true },
   });
   const payload = (existing?.payload ?? {}) as Record<string, unknown>;
@@ -169,7 +194,17 @@ async function saveStageDraftImpl(formData: FormData) {
     savedAt: new Date().toISOString(),
   };
 
-  await upsertStage(kase.id, type, "IN_PROGRESS", payload);
+  await upsertStage(caseId, type, "IN_PROGRESS", payload);
+}
+
+async function saveStageDraftImpl(formData: FormData) {
+  const s = await requireRole("CANDIDATE");
+  const { kase } = await getCandidateCase(s.user.id);
+  const type = (formData.get("__stage")?.toString() ?? "").toUpperCase() as StageType;
+  if (!type) throw new Error("Missing stage");
+  await guardDraftable(kase.id, type);
+
+  await persistDraftFromForm(kase.id, type, formData);
   await transitionCaseStatus(kase.id);
 }
 
@@ -206,6 +241,10 @@ const identitySchema = z.object({
 async function submitIdentityStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { cand, kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "IDENTITY", formData);
+
+  // Validate everything BEFORE any destructive write.
   const parsed = identitySchema.parse({
     legalFirstName: formData.get("legalFirstName"),
     legalMiddleName: formData.get("legalMiddleName") || undefined,
@@ -237,7 +276,7 @@ async function submitIdentityStageImpl(formData: FormData) {
 
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "IDENTITY" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "IDENTITY" });
+  await notifyStageSubmittedFor(kase.id, "IDENTITY");
 
   revalidatePath("/me");
   redirect("/me");
@@ -259,8 +298,21 @@ const addressSchema = z.object({
 async function submitAddressStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "ADDRESS", formData);
 
   const types = ["CURRENT", "PERMANENT"] as const;
+
+  // Validate ALL present types first, then perform destructive writes — so a
+  // missing field on PERMANENT doesn't half-delete the CURRENT address.
+  type ParsedAddr = {
+    type: AddressType;
+    line1: string; line2: string | null; city: string; state: string;
+    postalCode: string; country: string; fromDate: Date | null;
+    proofDocId?: string;
+  };
+  const toWrite: ParsedAddr[] = [];
+
   for (const t of types) {
     const present = formData.get(`${t}_line1`);
     if (!present) continue;
@@ -280,28 +332,45 @@ async function submitAddressStageImpl(formData: FormData) {
       const doc = await storeFile(proofFile, { kind: "ADDRESS_PROOF", caseId: kase.id });
       proofDocId = doc?.id;
     }
-    // delete previous of same type and insert fresh
-    await db.address.deleteMany({ where: { caseId: kase.id, type: t as AddressType } });
-    await db.address.create({
-      data: {
-        caseId: kase.id,
-        type: t as AddressType,
-        line1: parsed.line1,
-        line2: parsed.line2 ?? null,
-        city: parsed.city,
-        state: parsed.state,
-        postalCode: parsed.postalCode,
-        country: parsed.country,
-        fromDate: parsed.fromDate ? new Date(parsed.fromDate) : null,
-        isCurrent: t === "CURRENT",
-        proofDocId,
-      },
+    toWrite.push({
+      type: t as AddressType,
+      line1: parsed.line1,
+      line2: parsed.line2 ?? null,
+      city: parsed.city,
+      state: parsed.state,
+      postalCode: parsed.postalCode,
+      country: parsed.country,
+      fromDate: parsed.fromDate ? new Date(parsed.fromDate) : null,
+      proofDocId,
     });
   }
+
+  // All validated — delete + insert fresh inside a transaction so a failure rolls back.
+  await db.$transaction(async (tx) => {
+    for (const a of toWrite) {
+      await tx.address.deleteMany({ where: { caseId: kase.id, type: a.type } });
+      await tx.address.create({
+        data: {
+          caseId: kase.id,
+          type: a.type,
+          line1: a.line1,
+          line2: a.line2,
+          city: a.city,
+          state: a.state,
+          postalCode: a.postalCode,
+          country: a.country,
+          fromDate: a.fromDate,
+          isCurrent: a.type === "CURRENT",
+          proofDocId: a.proofDocId,
+        },
+      });
+    }
+  });
+
   await upsertStage(kase.id, "ADDRESS", "SUBMITTED");
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "ADDRESS" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "ADDRESS" });
+  await notifyStageSubmittedFor(kase.id, "ADDRESS");
   revalidatePath("/me");
   redirect("/me");
 }
@@ -326,6 +395,9 @@ const REQUIRED_EDU_LEVELS = ["SSC", "Intermediate", "Bachelor"] as const;
 async function submitEducationStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "EDUCATION", formData);
+
   const rows: number[] = [];
   for (const k of formData.keys()) {
     const m = k.match(/^edu_(\d+)_level$/);
@@ -366,16 +438,10 @@ async function submitEducationStageImpl(formData: FormData) {
       throw new Error(`${p.level}: stream / specialization is required`);
     }
 
+    // Education documents (marksheet + degree/passing certificate) are OPTIONAL.
+    // If not provided we simply keep any prior upload and never overwrite docId.
     const transcript = formData.get(`edu_${i}_transcript`) as File | null;
     const certificate = formData.get(`edu_${i}_degreeDoc`) as File | null;
-    const hadTranscript = !!existingByLevel.get(p.level)?.transcriptDocId;
-    const hadCertificate = !!existingByLevel.get(p.level)?.degreeDocId;
-    if ((!transcript || transcript.size === 0) && !hadTranscript) {
-      throw new Error(`${p.level}: marksheet is required`);
-    }
-    if ((!certificate || certificate.size === 0) && !hadCertificate) {
-      throw new Error(`${p.level}: passing/degree certificate is required`);
-    }
 
     parsedRows.push({
       i,
@@ -401,16 +467,15 @@ async function submitEducationStageImpl(formData: FormData) {
     }
   }
 
-  // All good — replace
-  await db.education.deleteMany({ where: { caseId: kase.id } });
-
-  for (const r of parsedRows) {
-    const prior = existingByLevel.get(r.level);
-    const tDoc = r.transcript ? await storeFile(r.transcript, { kind: "EDUCATION_TRANSCRIPT", caseId: kase.id }) : null;
-    const dDoc = r.certificate ? await storeFile(r.certificate, { kind: "EDUCATION_DEGREE", caseId: kase.id }) : null;
-
-    await db.education.create({
-      data: {
+  // All validated — store any new docs (additive), then replace records inside a
+  // transaction so a failure rolls back the delete. Optional docs: keep prior id
+  // when no new file was provided; never overwrite with null.
+  const writes = await Promise.all(
+    parsedRows.map(async (r) => {
+      const prior = existingByLevel.get(r.level);
+      const tDoc = r.transcript ? await storeFile(r.transcript, { kind: "EDUCATION_TRANSCRIPT", caseId: kase.id }) : null;
+      const dDoc = r.certificate ? await storeFile(r.certificate, { kind: "EDUCATION_DEGREE", caseId: kase.id }) : null;
+      return {
         caseId: kase.id,
         level: r.level,
         board: r.board,
@@ -424,14 +489,21 @@ async function submitEducationStageImpl(formData: FormData) {
         registrarEmail: r.registrarEmail,
         transcriptDocId: tDoc?.id ?? prior?.transcriptDocId ?? null,
         degreeDocId: dDoc?.id ?? prior?.degreeDocId ?? null,
-      },
-    });
-  }
+      };
+    })
+  );
+
+  await db.$transaction(async (tx) => {
+    await tx.education.deleteMany({ where: { caseId: kase.id } });
+    for (const data of writes) {
+      await tx.education.create({ data });
+    }
+  });
 
   await upsertStage(kase.id, "EDUCATION", "SUBMITTED");
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "EDUCATION", metadata: { levels: parsedRows.map((r) => r.level) } });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "EDUCATION" });
+  await notifyStageSubmittedFor(kase.id, "EDUCATION");
   // Reach out to registrars whose email the candidate provided
   await emailRegistrarVerifications({ caseId: kase.id });
   revalidatePath("/me");
@@ -456,35 +528,38 @@ const employmentItem = z.object({
 async function submitEmploymentStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "EMPLOYMENT", formData);
+
   const rows: number[] = [];
   for (const k of formData.keys()) {
     const m = k.match(/^emp_(\d+)_employer$/);
     if (m && m[1] !== undefined) rows.push(Number(m[1]));
   }
 
-  await db.employment.deleteMany({ where: { caseId: kase.id } });
-  for (const i of rows) {
-    const parsed = employmentItem.parse({
-      employer: formData.get(`emp_${i}_employer`),
-      title: formData.get(`emp_${i}_title`),
-      employmentType: formData.get(`emp_${i}_type`),
-      startDate: formData.get(`emp_${i}_startDate`),
-      endDate: formData.get(`emp_${i}_endDate`)?.toString() || undefined,
-      isCurrent: formData.get(`emp_${i}_isCurrent`)?.toString() || undefined,
-      managerName: formData.get(`emp_${i}_mgrName`)?.toString() || undefined,
-      managerEmail: formData.get(`emp_${i}_mgrEmail`)?.toString() || undefined,
-      managerPhone: formData.get(`emp_${i}_mgrPhone`)?.toString() || undefined,
-      reasonForLeaving: formData.get(`emp_${i}_reason`)?.toString() || undefined,
-    });
-    const offer = formData.get(`emp_${i}_offer`) as File | null;
-    const relieving = formData.get(`emp_${i}_relieving`) as File | null;
-    const payslip = formData.get(`emp_${i}_payslip`) as File | null;
-    const offerDoc = offer && offer.size > 0 ? await storeFile(offer, { kind: "EMPLOYMENT_OFFER", caseId: kase.id }) : null;
-    const relievingDoc = relieving && relieving.size > 0 ? await storeFile(relieving, { kind: "EMPLOYMENT_RELIEVING", caseId: kase.id }) : null;
-    const payslipDoc = payslip && payslip.size > 0 ? await storeFile(payslip, { kind: "EMPLOYMENT_PAYSLIP", caseId: kase.id }) : null;
-
-    await db.employment.create({
-      data: {
+  // Validate every row + store docs (additive) BEFORE deleting anything, so a bad
+  // row never wipes the candidate's existing employment history.
+  const writes = await Promise.all(
+    rows.map(async (i) => {
+      const parsed = employmentItem.parse({
+        employer: formData.get(`emp_${i}_employer`),
+        title: formData.get(`emp_${i}_title`),
+        employmentType: formData.get(`emp_${i}_type`),
+        startDate: formData.get(`emp_${i}_startDate`),
+        endDate: formData.get(`emp_${i}_endDate`)?.toString() || undefined,
+        isCurrent: formData.get(`emp_${i}_isCurrent`)?.toString() || undefined,
+        managerName: formData.get(`emp_${i}_mgrName`)?.toString() || undefined,
+        managerEmail: formData.get(`emp_${i}_mgrEmail`)?.toString() || undefined,
+        managerPhone: formData.get(`emp_${i}_mgrPhone`)?.toString() || undefined,
+        reasonForLeaving: formData.get(`emp_${i}_reason`)?.toString() || undefined,
+      });
+      const offer = formData.get(`emp_${i}_offer`) as File | null;
+      const relieving = formData.get(`emp_${i}_relieving`) as File | null;
+      const payslip = formData.get(`emp_${i}_payslip`) as File | null;
+      const offerDoc = offer && offer.size > 0 ? await storeFile(offer, { kind: "EMPLOYMENT_OFFER", caseId: kase.id }) : null;
+      const relievingDoc = relieving && relieving.size > 0 ? await storeFile(relieving, { kind: "EMPLOYMENT_RELIEVING", caseId: kase.id }) : null;
+      const payslipDoc = payslip && payslip.size > 0 ? await storeFile(payslip, { kind: "EMPLOYMENT_PAYSLIP", caseId: kase.id }) : null;
+      return {
         caseId: kase.id,
         employer: parsed.employer,
         title: parsed.title,
@@ -499,13 +574,22 @@ async function submitEmploymentStageImpl(formData: FormData) {
         offerLetterDocId: offerDoc?.id,
         relievingDocId: relievingDoc?.id,
         payslipDocId: payslipDoc?.id,
-      },
-    });
-  }
+      };
+    })
+  );
+
+  // All validated — delete + insert fresh inside a transaction.
+  await db.$transaction(async (tx) => {
+    await tx.employment.deleteMany({ where: { caseId: kase.id } });
+    for (const data of writes) {
+      await tx.employment.create({ data });
+    }
+  });
+
   await upsertStage(kase.id, "EMPLOYMENT", "SUBMITTED");
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "EMPLOYMENT" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "EMPLOYMENT" });
+  await notifyStageSubmittedFor(kase.id, "EMPLOYMENT");
   // Reach out to former employers/managers
   await emailEmployerVerifications({ caseId: kase.id });
   revalidatePath("/me");
@@ -524,19 +608,25 @@ const criminalSchema = z.object({
 async function submitCriminalStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "CRIMINAL", formData);
+
+  // Validate everything BEFORE any write.
   const parsed = criminalSchema.parse({
     jurisdictions: formData.get("jurisdictions"),
     consentName: formData.get("consentName"),
     consentAcknowledged: formData.get("consentAcknowledged"),
     declarations: formData.get("declarations") || undefined,
   });
-  await db.consentRecord.create({
-    data: {
-      caseId: kase.id,
-      kind: ConsentKind.CRIMINAL,
-      signedName: parsed.consentName,
-      textHash: "fcra-v1",
-    },
+  await db.$transaction(async (tx) => {
+    await tx.consentRecord.create({
+      data: {
+        caseId: kase.id,
+        kind: ConsentKind.CRIMINAL,
+        signedName: parsed.consentName,
+        textHash: "fcra-v1",
+      },
+    });
   });
   await upsertStage(kase.id, "CRIMINAL", "SUBMITTED", {
     jurisdictions: parsed.jurisdictions.split(",").map((j) => j.trim()).filter(Boolean),
@@ -544,7 +634,7 @@ async function submitCriminalStageImpl(formData: FormData) {
   });
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "CRIMINAL" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "CRIMINAL" });
+  await notifyStageSubmittedFor(kase.id, "CRIMINAL");
   revalidatePath("/me");
   redirect("/me");
 }
@@ -562,6 +652,10 @@ const veteranSchema = z.object({
 async function submitVeteranStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  // Persist what was typed FIRST so a validation failure re-fills the form.
+  await persistDraftFromForm(kase.id, "VETERAN", formData);
+
+  // Validate everything (and store the additive discharge doc) BEFORE deleting.
   const parsed = veteranSchema.parse({
     branch: formData.get("branch"),
     serviceStart: formData.get("serviceStart"),
@@ -573,22 +667,25 @@ async function submitVeteranStageImpl(formData: FormData) {
   const dischargeDoc = discharge && discharge.size > 0
     ? await storeFile(discharge, { kind: "VETERAN_DISCHARGE", caseId: kase.id })
     : null;
-  await db.veteranRecord.deleteMany({ where: { caseId: kase.id } });
-  await db.veteranRecord.create({
-    data: {
-      caseId: kase.id,
-      branch: parsed.branch,
-      serviceStart: new Date(parsed.serviceStart),
-      serviceEnd: parsed.serviceEnd ? new Date(parsed.serviceEnd) : null,
-      serviceNumber: parsed.serviceNumber ? encryptString(parsed.serviceNumber) : null,
-      characterOfService: parsed.characterOfService ?? null,
-      dischargeDocId: dischargeDoc?.id,
-    },
+
+  await db.$transaction(async (tx) => {
+    await tx.veteranRecord.deleteMany({ where: { caseId: kase.id } });
+    await tx.veteranRecord.create({
+      data: {
+        caseId: kase.id,
+        branch: parsed.branch,
+        serviceStart: new Date(parsed.serviceStart),
+        serviceEnd: parsed.serviceEnd ? new Date(parsed.serviceEnd) : null,
+        serviceNumber: parsed.serviceNumber ? encryptString(parsed.serviceNumber) : null,
+        characterOfService: parsed.characterOfService ?? null,
+        dischargeDocId: dischargeDoc?.id,
+      },
+    });
   });
   await upsertStage(kase.id, "VETERAN", "SUBMITTED");
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "VETERAN" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "VETERAN" });
+  await notifyStageSubmittedFor(kase.id, "VETERAN");
   revalidatePath("/me");
   redirect("/me");
 }
@@ -599,12 +696,16 @@ async function submitPhotoStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
   const selfie = formData.get("selfie") as File | null;
+  // Persist the selected file FIRST so a failed submit re-fills the form. This
+  // also stores the selfie document, so on success we reuse it rather than
+  // double-storing.
+  await persistDraftFromForm(kase.id, "PHOTO", formData);
   if (!selfie || selfie.size === 0) throw new Error("Selfie is required");
   await storeFile(selfie, { kind: "PHOTO_SELFIE", caseId: kase.id });
   await upsertStage(kase.id, "PHOTO", "SUBMITTED");
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "PHOTO" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "PHOTO" });
+  await notifyStageSubmittedFor(kase.id, "PHOTO");
   revalidatePath("/me");
   redirect("/me");
 }
@@ -616,70 +717,93 @@ async function submitVideoStageImpl(formData: FormData) {
   const { kase } = await getCandidateCase(s.user.id);
   const rec = formData.get("recording") as File | null;
   const phrase = formData.get("phrase")?.toString() ?? "";
+  // Persist the recording + phrase FIRST so a failed submit re-fills the form.
+  await persistDraftFromForm(kase.id, "VIDEO", formData);
   if (!rec || rec.size === 0) throw new Error("Recording is required");
   await storeFile(rec, { kind: "VIDEO_RECORDING", caseId: kase.id });
   await upsertStage(kase.id, "VIDEO", "SUBMITTED", { phrase });
   await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "VIDEO" });
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "VIDEO" });
+  await notifyStageSubmittedFor(kase.id, "VIDEO");
   revalidatePath("/me");
   redirect("/me");
 }
 
-// ---------- REFERENCES ----------
+// (Reference stage retired — its model + REFERENCE enum value are kept in the
+// schema to avoid a migration, but candidates no longer submit references.)
 
-const refItem = z.object({
-  name: z.string().min(1),
-  relationship: z.string().min(1),
-  employer: z.string().optional(),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  yearsKnown: z.string().optional(),
-});
+// (Stage submitted -> in-app BGV notification lives in notifyStageSubmittedFor;
+//  the verifier is emailed once at final submit — see submitProfileForBgv.)
 
-async function submitReferenceStageImpl(formData: FormData) {
+// ---------- FINAL SUBMIT (candidate sends the whole profile to BGV) ----------
+
+async function submitProfileForBgvImpl() {
   const s = await requireRole("CANDIDATE");
-  const { kase } = await getCandidateCase(s.user.id);
-  const rows: number[] = [];
-  for (const k of formData.keys()) {
-    const m = k.match(/^ref_(\d+)_name$/);
-    if (m && m[1] !== undefined) rows.push(Number(m[1]));
-  }
-  if (rows.length < 2) throw new Error("At least two references are required");
+  const { cand, kase } = await getCandidateCase(s.user.id);
 
-  await db.reference.deleteMany({ where: { caseId: kase.id } });
-  for (const i of rows) {
-    const parsed = refItem.parse({
-      name: formData.get(`ref_${i}_name`),
-      relationship: formData.get(`ref_${i}_relationship`),
-      employer: formData.get(`ref_${i}_employer`)?.toString() || undefined,
-      email: formData.get(`ref_${i}_email`),
-      phone: formData.get(`ref_${i}_phone`)?.toString() || undefined,
-      yearsKnown: formData.get(`ref_${i}_years`)?.toString() || undefined,
-    });
-    await db.reference.create({
-      data: {
-        caseId: kase.id,
-        name: parsed.name,
-        relationship: parsed.relationship,
-        employer: parsed.employer ?? null,
-        email: parsed.email,
-        phone: parsed.phone ?? null,
-        yearsKnown: parsed.yearsKnown ? Number(parsed.yearsKnown) : null,
-      },
-    });
+  // Required stages for this candidate — same source provisioning uses.
+  const required = stagesForCandidateType(cand.candidateType, cand.isVeteran);
+  const stages = await db.stage.findMany({
+    where: { caseId: kase.id },
+    select: { type: true, status: true },
+  });
+  const statusByType = new Map(stages.map((st) => [st.type, st.status]));
+  const isDone = (st?: StageStatus) =>
+    st === "SUBMITTED" || st === "UNDER_REVIEW" || st === "APPROVED";
+
+  const incomplete = required.filter((t) => !isDone(statusByType.get(t)));
+  if (incomplete.length > 0) {
+    throw new Error("Please complete and submit all stages before submitting your profile.");
   }
-  await upsertStage(kase.id, "REFERENCE", "SUBMITTED");
-  await audit({ actorId: s.user.id, caseId: kase.id, action: "stage.submitted", target: "REFERENCE" });
+
+  // Move the case to AWAITING_REVIEW (no-op if already there / further along).
   await transitionCaseStatus(kase.id);
-  await emailVerifierStageSubmitted({ caseId: kase.id, stage: "REFERENCE" });
-  // Outreach to each reference with a single-use link
-  await emailReferenceOutreach({ caseId: kase.id });
+
+  // ONE consolidated email to the BGV team — idempotent per case.
+  const already = await db.emailLog.findFirst({
+    where: { caseId: kase.id, templateId: "profile.submitted.bgv" },
+  });
+  if (!already) {
+    await emailProfileSubmittedForBgv({ caseId: kase.id });
+  }
+
+  // In-app bell for the desk. No PROFILE_SUBMITTED kind exists — reuse GENERIC
+  // (the same kind notifyStageSubmitted uses for its "all stages submitted" ping).
+  const candidateName = cand.user.name ?? cand.user.email;
+  await notifyBgvTeam(kase.id, {
+    kind: "GENERIC",
+    title: "Profile submitted for BGV",
+    body: `${candidateName} has submitted their full profile (${kase.reference}). The case is ready for review.`,
+    link: `/work/case/${kase.id}`,
+  });
+
+  await audit({ actorId: s.user.id, caseId: kase.id, action: "profile.submitted", target: kase.reference });
+
   revalidatePath("/me");
-  redirect("/me");
+  redirect("/me?submitted=1");
 }
 
-// (Stage submitted -> verifier notification lives in src/server/emails.ts)
+/**
+ * Final candidate action: confirm the whole profile is complete and hand the case
+ * to the BGV team. Requires every required stage (by candidate type + veteran) to
+ * be at least SUBMITTED. Emails the verifier once (idempotent) and pings the desk.
+ * Errors surface on /me/review via ?err= (same pattern as withStageErrors).
+ */
+export async function submitProfileForBgv(_formData?: FormData): Promise<void> {
+  try {
+    await submitProfileForBgvImpl();
+  } catch (e) {
+    const digest = (e as { digest?: unknown } | null)?.digest;
+    if (typeof digest === "string" && (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND")) {
+      throw e;
+    }
+    const msg =
+      e instanceof Error && e.message
+        ? e.message
+        : "Could not submit your profile. Please try again.";
+    redirect(`/me/review?err=${encodeURIComponent(msg)}`);
+  }
+}
 
 
 // Public stage actions — validation errors surface inline (see withStageErrors).
@@ -691,4 +815,3 @@ export const submitCriminalStage = withStageErrors("/me/stage/criminal", submitC
 export const submitVeteranStage = withStageErrors("/me/stage/veteran", submitVeteranStageImpl);
 export const submitPhotoStage = withStageErrors("/me/stage/photo", submitPhotoStageImpl);
 export const submitVideoStage = withStageErrors("/me/stage/video", submitVideoStageImpl);
-export const submitReferenceStage = withStageErrors("/me/stage/reference", submitReferenceStageImpl);
