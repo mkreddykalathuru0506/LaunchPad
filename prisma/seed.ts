@@ -15,7 +15,7 @@ async function main() {
   });
 
   // ── First-run admin (idempotent: only created if no admin exists yet) ──
-  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@elivixit.com").toLowerCase();
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@elvixit.com").toLowerCase();
   const adminName = process.env.ADMIN_NAME ?? "Launch Pad Admin";
   const adminPasswordPlain = process.env.ADMIN_PASSWORD ?? "Passw0rd!";
   const adminPwd = await hash(adminPasswordPlain);
@@ -45,10 +45,10 @@ async function main() {
   const pwd = await hash("Passw0rd!");
 
   const manager = await prisma.user.upsert({
-    where: { email: "manager@elivixit.com" },
+    where: { email: "manager@elvixit.com" },
     update: {},
     create: {
-      email: "manager@elivixit.com",
+      email: "manager@elvixit.com",
       name: "Mira Manager",
       role: Role.MANAGER,
       passwordHash: pwd,
@@ -57,10 +57,10 @@ async function main() {
   });
 
   const v1 = await prisma.user.upsert({
-    where: { email: "verifier1@elivixit.com" },
+    where: { email: "verifier1@elvixit.com" },
     update: {},
     create: {
-      email: "verifier1@elivixit.com",
+      email: "verifier1@elvixit.com",
       name: "Vinay Verifier",
       role: Role.VERIFIER,
       passwordHash: pwd,
@@ -68,10 +68,10 @@ async function main() {
     },
   });
   const v2 = await prisma.user.upsert({
-    where: { email: "verifier2@elivixit.com" },
+    where: { email: "verifier2@elvixit.com" },
     update: {},
     create: {
-      email: "verifier2@elivixit.com",
+      email: "verifier2@elvixit.com",
       name: "Veena Verifier",
       role: Role.VERIFIER,
       passwordHash: pwd,
@@ -241,10 +241,10 @@ async function main() {
 
   console.log("Seed complete.");
   console.log("Login with any of the following (password: Passw0rd!):");
-  console.log("  admin@elivixit.com           (ADMIN)");
-  console.log("  manager@elivixit.com         (MANAGER)");
-  console.log("  verifier1@elivixit.com       (VERIFIER)");
-  console.log("  verifier2@elivixit.com       (VERIFIER)");
+  console.log("  admin@elvixit.com           (ADMIN)");
+  console.log("  manager@elvixit.com         (MANAGER)");
+  console.log("  verifier1@elvixit.com       (VERIFIER)");
+  console.log("  verifier2@elvixit.com       (VERIFIER)");
   console.log("  arjun@example.com .. farah@example.com (CANDIDATES)");
 }
 

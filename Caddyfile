@@ -1,7 +1,7 @@
 {
 	# ACME contact — Let's Encrypt expiry warnings go here.
 	# Replace before first deploy.
-	email bgv@elivixit.com
+	email bgv@elvixit.com
 
 	# Reasonable global defaults
 	servers {
