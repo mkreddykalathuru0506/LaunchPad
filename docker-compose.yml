@@ -86,6 +86,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-launchpad}:${POSTGRES_PASSWORD:-launchpad}@launchpad-db:5432/${POSTGRES_DB:-launchpad}?schema=public"
+      # Optional: when set, the seed creates a permanent bgv@elvixit.com ADMIN.
+      BGV_ADMIN_PASSWORD: ${BGV_ADMIN_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy

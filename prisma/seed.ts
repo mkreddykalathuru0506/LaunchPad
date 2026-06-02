@@ -33,6 +33,31 @@ async function main() {
   });
   console.log(`Admin user: ${admin.email}`);
 
+  // ── Dedicated BGV operator login (permanent — recreated on every deploy) ──
+  // Same mailbox that receives the "profile submitted for BGV" notifications, so
+  // the person reading that inbox signs in with the same address. The password
+  // comes ONLY from BGV_ADMIN_PASSWORD (a deploy secret) — never a hardcoded
+  // default, so we don't ship a known admin credential. Skipped when unset.
+  // Create-only (won't reset the password if the account already exists),
+  // matching the first-run admin above.
+  const bgvPasswordPlain = process.env.BGV_ADMIN_PASSWORD;
+  if (bgvPasswordPlain && bgvPasswordPlain.trim().length > 0) {
+    const bgv = await prisma.user.upsert({
+      where: { email: "bgv@elvixit.com" },
+      update: {},
+      create: {
+        email: "bgv@elvixit.com",
+        name: "BGV Team",
+        role: Role.ADMIN,
+        passwordHash: await hash(bgvPasswordPlain),
+        emailVerified: new Date(),
+      },
+    });
+    console.log(`BGV admin user: ${bgv.email}`);
+  } else {
+    console.log("BGV_ADMIN_PASSWORD not set — skipping bgv@elvixit.com admin seed.");
+  }
+
   // Skip demo seed in production. Set SEED_DEMO=true to force demo data.
   const seedDemo = (process.env.SEED_DEMO ?? "").toLowerCase() === "true"
     || process.env.NODE_ENV !== "production";
