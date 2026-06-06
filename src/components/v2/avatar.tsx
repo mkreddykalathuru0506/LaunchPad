@@ -17,7 +17,7 @@ const toneMap: Record<AvatarTone, string> = {
     "bg-gradient-to-br from-muted to-muted/60 text-muted-foreground ring-1 ring-inset ring-border",
   success:
     "bg-gradient-to-br from-success/20 to-success/10 text-success ring-1 ring-inset ring-success/25",
-  warn: "bg-gradient-to-br from-warning/25 to-warning/10 text-warning-foreground ring-1 ring-inset ring-warning/40",
+  warn: "bg-gradient-to-br from-warning/25 to-warning/10 text-warning-foreground dark:text-warning ring-1 ring-inset ring-warning/40",
   danger:
     "bg-gradient-to-br from-destructive/20 to-destructive/10 text-destructive ring-1 ring-inset ring-destructive/25",
 };

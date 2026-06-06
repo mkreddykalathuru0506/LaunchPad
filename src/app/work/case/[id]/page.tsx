@@ -35,7 +35,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
   return (
     <>
       <Link href="/work" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to queue
+        <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Back to queue
       </Link>
 
       <PageHeader
@@ -47,7 +47,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
             {kase.clearedReportPath && (
               <Button asChild variant="outline" size="sm">
                 <a href={`/api/documents/${encodeURIComponent(kase.clearedReportPath)}`} target="_blank" rel="noreferrer">
-                  <FileDown className="h-4 w-4" /> Clearance PDF
+                  <FileDown aria-hidden="true" className="h-4 w-4" /> Clearance PDF
                 </a>
               </Button>
             )}
@@ -67,7 +67,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
             <TabsContent value="stages" className="space-y-4">
               {kase.stages.map((s) => (
-                <Card key={s.id} className={s.status === "SUBMITTED" || s.status === "UNDER_REVIEW" ? "border-primary/40" : ""}>
+                <Card key={s.id} className={s.status === "SUBMITTED" || s.status === "UNDER_REVIEW" ? "border-brand/50" : ""}>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -119,7 +119,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
               {kase.addresses.length > 0 && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><MapPin className="h-4 w-4 text-muted-foreground" /><CardTitle className="text-base">Addresses</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><MapPin className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><CardTitle className="text-base">Addresses</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {kase.addresses.map((a) => (
                       <div key={a.id} className="rounded-md border p-3">
@@ -135,7 +135,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
               {kase.educations.length > 0 && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><GraduationCap className="h-4 w-4 text-muted-foreground" /><CardTitle className="text-base">Education</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><GraduationCap className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><CardTitle className="text-base">Education</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {kase.educations.map((e) => (
                       <div key={e.id} className="rounded-md border p-3">
@@ -155,7 +155,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
               {kase.employments.length > 0 && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Briefcase className="h-4 w-4 text-muted-foreground" /><CardTitle className="text-base">Employment</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Briefcase className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><CardTitle className="text-base">Employment</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {kase.employments.map((e) => (
                       <div key={e.id} className="rounded-md border p-3">
@@ -170,7 +170,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
               {kase.references.length > 0 && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Users className="h-4 w-4 text-muted-foreground" /><CardTitle className="text-base">References</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><CardTitle className="text-base">References</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {kase.references.map((r) => (
                       <div key={r.id} className="rounded-md border p-3">
@@ -184,7 +184,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
               {kase.veteranRecord && (
                 <Card>
-                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Medal className="h-4 w-4 text-muted-foreground" /><CardTitle className="text-base">Veteran</CardTitle></CardHeader>
+                  <CardHeader className="flex flex-row items-center gap-2 space-y-0"><Medal className="h-4 w-4 text-muted-foreground" aria-hidden="true" /><CardTitle className="text-base">Veteran</CardTitle></CardHeader>
                   <CardContent className="text-sm">
                     {kase.veteranRecord.branch} · {formatDate(kase.veteranRecord.serviceStart)} → {formatDate(kase.veteranRecord.serviceEnd)}
                   </CardContent>
@@ -201,7 +201,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
                   <tbody>
                     {kase.documents.map((d) => (
                       <tr key={d.id} className="border-t">
-                        <td className="p-3 font-medium"><FileText className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" />{d.filename}</td>
+                        <td className="p-3 font-medium"><FileText className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />{d.filename}</td>
                         <td className="p-3">{d.kind}</td>
                         <td className="p-3">{(d.sizeBytes / 1024).toFixed(1)} KB</td>
                         <td className="p-3 font-mono text-xs">{d.sha256.slice(0, 12)}…</td>
@@ -219,7 +219,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
                 <ul className="space-y-3 text-sm">
                   {audits.map((a) => (
                     <li key={a.id} className="flex items-start gap-3">
-                      <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <div className="mt-1 h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
                       <div className="flex-1">
                         <div className="font-medium">{a.action} {a.target && <span className="text-muted-foreground">· {a.target}</span>}</div>
                         <div className="text-xs text-muted-foreground">

@@ -32,7 +32,7 @@ export function SectionHeading({
           <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <span
               aria-hidden="true"
-              className="inline-block h-1 w-1 rounded-full bg-primary"
+              className="inline-block h-1 w-1 rounded-full bg-brand"
             />
             {eyebrow}
           </div>

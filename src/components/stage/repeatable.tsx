@@ -23,7 +23,7 @@ export function Repeatable({
             <div className="text-sm font-semibold">{label} #{indices.indexOf(i) + 1}</div>
             {indices.length > 1 && (
               <Button type="button" variant="ghost" size="sm" onClick={() => remove(i)} aria-label="Remove">
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
           </div>
@@ -31,7 +31,7 @@ export function Repeatable({
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" onClick={next}>
-        <Plus className="h-4 w-4" /> Add another
+        <Plus className="h-4 w-4" aria-hidden="true" /> Add another
       </Button>
     </div>
   );

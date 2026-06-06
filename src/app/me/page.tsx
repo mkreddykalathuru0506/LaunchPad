@@ -121,9 +121,9 @@ export default async function CandidateDashboard({
         actions={
           <div className="flex items-center gap-2">
             <CaseStatusBadge status={kase.status} />
-            <Button asChild size="sm">
+            <Button asChild size="sm" variant="brand">
               <Link href="/me/review">
-                <ClipboardCheck className="h-3.5 w-3.5" /> Review &amp; submit
+                <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" /> Review &amp; submit
               </Link>
             </Button>
           </div>
@@ -133,7 +133,7 @@ export default async function CandidateDashboard({
       {corrections.length > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/20">
-            <ShieldAlert className="h-5 w-5 text-warning-foreground" />
+            <ShieldAlert className="h-5 w-5 text-warning-foreground dark:text-warning" aria-hidden="true" />
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold">
@@ -145,7 +145,7 @@ export default async function CandidateDashboard({
           </div>
           <Button asChild size="sm" variant="warning">
             <Link href={stageRoute[corrections[0]!.type]!}>
-              Fix now <ArrowRight className="h-3.5 w-3.5" />
+              Fix now <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
           </Button>
         </div>
@@ -210,7 +210,7 @@ export default async function CandidateDashboard({
                   key={s.id}
                   href={stageRoute[s.type]!}
                   className={`group relative overflow-hidden rounded-xl border bg-card p-4 transition-all hover:-translate-y-px hover:shadow-md ${
-                    isCorrection ? "border-warning/50 ring-1 ring-warning/30" : "border-border/70 hover:border-primary/30"
+                    isCorrection ? "border-warning/50 ring-1 ring-warning/30" : "border-border/70 hover:border-brand/40"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -219,23 +219,24 @@ export default async function CandidateDashboard({
                         isApproved
                           ? "bg-success/10 text-success ring-success/25"
                           : isCorrection
-                          ? "bg-warning/15 text-warning-foreground ring-warning/35"
+                          ? "bg-warning/15 text-warning-foreground ring-warning/35 dark:text-warning"
                           : isPending
-                          ? "bg-primary/10 text-primary ring-primary/25"
+                          ? "bg-brand/10 text-brand ring-brand/25"
                           : "bg-muted text-muted-foreground ring-border"
                       }`}
+                      aria-hidden="true"
                     >
                       {stageIcon[s.type]}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="text-sm font-semibold">{stageLabels[s.type]}</div>
-                        {isApproved && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
+                        {isApproved && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />}
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{stageBlurbs[s.type]}</p>
                       <div className="mt-2 flex items-center justify-between">
                         <StageStatusBadge status={s.status} />
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true" />
                       </div>
                     </div>
                   </div>

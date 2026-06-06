@@ -56,7 +56,7 @@ export default async function Reports() {
               {recentDecisions.map((r) => (
                 <TR key={r.id}>
                   <TD className="text-muted-foreground">{formatDateTime(r.createdAt)}</TD>
-                  <TD className="font-medium">{r.stage.case.reference}</TD>
+                  <TD className="tabnum font-mono text-xs text-brand">{r.stage.case.reference}</TD>
                   <TD>{r.stage.type}</TD>
                   <TD>{r.decision}</TD>
                   <TD>{r.reviewer.name ?? r.reviewer.email}</TD>

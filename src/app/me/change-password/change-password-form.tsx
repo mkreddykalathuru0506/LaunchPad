@@ -79,7 +79,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
         </div>
       )}
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
         Set new password
       </Button>
     </form>

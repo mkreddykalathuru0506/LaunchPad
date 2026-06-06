@@ -32,7 +32,7 @@ export default async function DocumentsPage() {
               <TBody>
                 {docs.map((d) => (
                   <TR key={d.id}>
-                    <TD className="font-medium"><div className="inline-flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" />{d.filename}</div></TD>
+                    <TD className="font-medium"><div className="inline-flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{d.filename}</div></TD>
                     <TD>{d.kind}</TD>
                     <TD>{(d.sizeBytes / 1024).toFixed(1)} KB</TD>
                     <TD className="font-mono text-xs">{d.sha256.slice(0, 12)}…</TD>

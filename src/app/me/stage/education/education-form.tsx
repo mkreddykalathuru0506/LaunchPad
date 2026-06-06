@@ -73,8 +73,8 @@ function EducationBlock({
     <div className="rounded-lg border p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
-          <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <GraduationCap className="h-4 w-4" />
+          <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-brand/10 text-brand">
+            <GraduationCap className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
             <div className="text-sm font-semibold">{title} {isRequired && <span className="text-destructive">*</span>}</div>
@@ -83,7 +83,7 @@ function EducationBlock({
         </div>
         {!isRequired && onRemove && (
           <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label="Remove">
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
       </div>
@@ -149,7 +149,7 @@ export function EducationForm({ initial }: { initial?: EducationDraft }) {
 
   return (
     <form action={submitEducationStage} className="space-y-6">
-      <div className="rounded-md border border-primary/30 bg-accent/40 p-3 text-sm">
+      <div className="rounded-md border border-brand/30 bg-accent/40 p-3 text-sm">
         <div className="font-medium">India education verification</div>
         <p className="mt-0.5 text-muted-foreground">
           SSC (10th), Intermediate (12th), and Degree details are mandatory. Uploading the
@@ -197,7 +197,7 @@ export function EducationForm({ initial }: { initial?: EducationDraft }) {
         <span className="text-sm text-muted-foreground">Add another qualification:</span>
         {OPTIONAL_LEVELS.map((o) => (
           <Button key={o.key} type="button" variant="outline" size="sm" onClick={() => addExtra(o.key)}>
-            <Plus className="h-3.5 w-3.5" /> {o.title}
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {o.title}
           </Button>
         ))}
       </div>

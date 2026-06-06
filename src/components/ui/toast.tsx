@@ -1,14 +1,34 @@
 "use client";
 import * as React from "react";
+import { CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Toast = { id: string; title: string; description?: string; tone?: "success" | "danger" | "info" };
+type ToastTone = "success" | "danger" | "info";
+type Toast = { id: string; title: string; description?: string; tone?: ToastTone };
 const ToastCtx = React.createContext<{ push: (t: Omit<Toast, "id">) => void } | null>(null);
 
 export function useToast() {
   const ctx = React.useContext(ToastCtx);
   if (!ctx) throw new Error("useToast must be inside <ToastProvider>");
   return ctx;
+}
+
+// Token-based tone styling. Icons make the status non-color-dependent (a11y);
+// success/danger text tokens hold AA on the opaque card surface in both themes.
+const toneBorder: Record<ToastTone, string> = {
+  success: "border-success/30",
+  danger: "border-destructive/30",
+  info: "border-brand/30",
+};
+const toneIconColor: Record<ToastTone, string> = {
+  success: "text-success",
+  danger: "text-destructive",
+  info: "text-brand",
+};
+function ToneIcon({ tone }: { tone: ToastTone }) {
+  if (tone === "success") return <CheckCircle2 className="h-4 w-4" aria-hidden="true" />;
+  if (tone === "danger") return <AlertCircle className="h-4 w-4" aria-hidden="true" />;
+  return <Info className="h-4 w-4" aria-hidden="true" />;
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -21,21 +41,35 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={{ push }}>
       {children}
-      <div className="fixed right-4 top-4 z-[100] flex w-80 flex-col gap-2">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={cn(
-              "rounded-lg border bg-background p-3 shadow-lg animate-slide-up",
-              t.tone === "success" && "border-success/30",
-              t.tone === "danger" && "border-destructive/30",
-              t.tone === "info" && "border-primary/30"
-            )}
-          >
-            <div className="text-sm font-semibold">{t.title}</div>
-            {t.description && <div className="mt-0.5 text-xs text-muted-foreground">{t.description}</div>}
-          </div>
-        ))}
+      {/* Polite live region: announced by SR without stealing focus. Not a
+          focusable container, so keyboard focus stays where the user left it. */}
+      <div
+        className="fixed right-4 top-4 z-[100] flex w-80 flex-col gap-2"
+        role="region"
+        aria-label="Notifications"
+      >
+        {toasts.map((t) => {
+          const tone: ToastTone = t.tone ?? "info";
+          return (
+            <div
+              key={t.id}
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "flex items-start gap-2.5 rounded-lg border bg-card text-card-foreground p-3 shadow-lg ring-1 ring-border/50 animate-slide-up",
+                toneBorder[tone]
+              )}
+            >
+              <span className={cn("mt-0.5 shrink-0", toneIconColor[tone])}>
+                <ToneIcon tone={tone} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">{t.title}</div>
+                {t.description && <div className="mt-0.5 text-xs text-muted-foreground">{t.description}</div>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </ToastCtx.Provider>
   );

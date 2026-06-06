@@ -13,13 +13,13 @@ export function StageReviewForm({ stageId }: { stageId: string; stageType: strin
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3">
         <Button variant="success" size="sm" onClick={() => setDecision("APPROVED")}>
-          <CheckCircle2 className="h-4 w-4" /> Approve
+          <CheckCircle2 aria-hidden="true" className="h-4 w-4" /> Approve
         </Button>
         <Button variant="warning" size="sm" onClick={() => setDecision("NEEDS_CORRECTION")}>
-          <MessageSquareWarning className="h-4 w-4" /> Request correction
+          <MessageSquareWarning aria-hidden="true" className="h-4 w-4" /> Request correction
         </Button>
         <Button variant="destructive" size="sm" onClick={() => setDecision("REJECTED")}>
-          <XCircle className="h-4 w-4" /> Reject
+          <XCircle aria-hidden="true" className="h-4 w-4" /> Reject
         </Button>
       </div>
     );

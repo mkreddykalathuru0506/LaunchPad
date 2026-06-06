@@ -19,7 +19,7 @@ export function UserMenu({ session }: { session: AppSession }) {
         {initials(session.user.name ?? session.user.email)}
       </div>
       <Button variant="ghost" size="icon" aria-label="Sign out" onClick={() => signOut({ callbackUrl: "/login" })}>
-        <LogOut className="h-4 w-4" />
+        <LogOut className="h-4 w-4" aria-hidden="true" />
       </Button>
     </div>
   );

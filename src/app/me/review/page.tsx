@@ -67,7 +67,7 @@ export default async function ReviewPage({
         actions={
           <Button asChild variant="ghost" size="sm">
             <Link href="/me">
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to dashboard
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Back to dashboard
             </Link>
           </Button>
         }
@@ -76,7 +76,7 @@ export default async function ReviewPage({
       {!allDone && (
         <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/20">
-            <AlertTriangle className="h-5 w-5 text-warning-foreground" />
+            <AlertTriangle className="h-5 w-5 text-warning-foreground dark:text-warning" aria-hidden="true" />
           </div>
           <div className="flex-1 text-sm">
             <div className="font-semibold">
@@ -105,7 +105,7 @@ export default async function ReviewPage({
                   </div>
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/me/stage/${type.toLowerCase()}`}>
-                      <Pencil className="h-3.5 w-3.5" /> Edit
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
                     </Link>
                   </Button>
                 </div>
@@ -127,7 +127,7 @@ export default async function ReviewPage({
                   allDone ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                 }`}
               >
-                {allDone ? <CheckCircle2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+                {allDone ? <CheckCircle2 className="h-5 w-5" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
               </div>
               <div className="text-sm">
                 <div className="font-semibold">
@@ -143,8 +143,8 @@ export default async function ReviewPage({
               </div>
             </div>
             <form action={submitProfileForBgv}>
-              <Button type="submit" disabled={!allDone || alreadySubmitted}>
-                <Send className="h-4 w-4" /> {alreadySubmitted ? "Submitted" : "Submit profile for BGV"}
+              <Button type="submit" variant="brand" disabled={!allDone || alreadySubmitted}>
+                <Send className="h-4 w-4" aria-hidden="true" /> {alreadySubmitted ? "Submitted" : "Submit profile for BGV"}
               </Button>
             </form>
           </div>

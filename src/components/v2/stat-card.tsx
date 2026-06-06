@@ -33,7 +33,7 @@ const accentIconBg: Record<Accent, string> = {
   success:
     "bg-success/10 text-success ring-1 ring-inset ring-success/25",
   warning:
-    "bg-warning/15 text-warning-foreground ring-1 ring-inset ring-warning/35",
+    "bg-warning/15 text-warning-foreground dark:text-warning ring-1 ring-inset ring-warning/35",
   info: "bg-[hsl(var(--info))]/10 text-[hsl(var(--info))] ring-1 ring-inset ring-[hsl(var(--info))]/25",
   neutral:
     "bg-muted text-muted-foreground ring-1 ring-inset ring-border",

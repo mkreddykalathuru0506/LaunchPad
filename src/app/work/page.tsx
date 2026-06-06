@@ -84,7 +84,7 @@ export default async function VerifierQueue() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <span className="font-semibold">{candName}</span>
-                          <span className="tabnum font-mono text-xs text-primary">{c.reference}</span>
+                          <span className="tabnum font-mono text-xs text-brand">{c.reference}</span>
                           <CaseStatusBadge status={c.status} />
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -102,7 +102,7 @@ export default async function VerifierQueue() {
                           <span>Updated {formatDateTime(c.updatedAt)}</span>
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+                      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </Link>
                   </li>
                 );

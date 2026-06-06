@@ -21,7 +21,7 @@ const dotTone: Record<TimelineTone, string> = {
   neutral: "bg-muted text-muted-foreground ring-border",
   info: "bg-accent text-accent-foreground ring-primary/30",
   success: "bg-success/15 text-success ring-success/30",
-  warn: "bg-warning/15 text-warning-foreground ring-warning/40",
+  warn: "bg-warning/15 text-warning-foreground dark:text-warning ring-warning/40",
   danger: "bg-destructive/15 text-destructive ring-destructive/30",
 };
 
