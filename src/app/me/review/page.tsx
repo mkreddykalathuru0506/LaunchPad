@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
+import { db } from "@/lib/db";
 import { getCaseForCandidate } from "@/server/queries/case";
 import { submitProfileForBgv } from "@/server/actions/stage";
 import { requiredStagesForCase } from "@/lib/stages";
@@ -44,6 +45,14 @@ export default async function ReviewPage({
   const byType = new Map(kase.stages.map((s) => [s.type, s]));
   const incomplete = required.filter((t) => !DONE.includes(byType.get(t)?.status ?? "NOT_STARTED"));
   const allDone = incomplete.length === 0;
+
+  // The consolidated hand-off email doubles as the "already submitted" flag
+  // (same check the action uses) — once handed off, corrections re-enter
+  // review automatically on stage resubmit; the button stays disabled.
+  const alreadySubmitted = !!(await db.emailLog.findFirst({
+    where: { caseId: kase.id, templateId: "profile.submitted.bgv" },
+    select: { id: true },
+  }));
 
   return (
     <div className="space-y-8">
@@ -120,15 +129,21 @@ export default async function ReviewPage({
                 {allDone ? <CheckCircle2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
               </div>
               <div className="text-sm">
-                <div className="font-semibold">Submit your profile for background verification</div>
+                <div className="font-semibold">
+                  {alreadySubmitted
+                    ? "Profile submitted — the BGV team is reviewing it"
+                    : "Submit your profile for background verification"}
+                </div>
                 <p className="mt-0.5 text-muted-foreground">
-                  This sends your completed profile to the BGV team. You&apos;ll be notified by email as it&apos;s reviewed.
+                  {alreadySubmitted
+                    ? "If a stage needs corrections you'll be emailed; fixing and resubmitting that stage sends it back to review automatically."
+                    : "This sends your completed profile to the BGV team. You'll be notified by email as it's reviewed."}
                 </p>
               </div>
             </div>
             <form action={submitProfileForBgv}>
-              <Button type="submit" disabled={!allDone}>
-                <Send className="h-4 w-4" /> Submit profile for BGV
+              <Button type="submit" disabled={!allDone || alreadySubmitted}>
+                <Send className="h-4 w-4" /> {alreadySubmitted ? "Submitted" : "Submit profile for BGV"}
               </Button>
             </form>
           </div>

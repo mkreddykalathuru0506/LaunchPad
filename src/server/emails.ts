@@ -8,7 +8,6 @@ import { env } from "@/lib/env";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
 import { stageLabels } from "@/lib/utils";
-import { notifyStageSubmitted } from "@/server/notify";
 import { StageType } from "@prisma/client";
 
 async function safeSend(mail: Parameters<typeof sendMail>[0]) {
@@ -111,36 +110,9 @@ export async function emailStageReminder(opts: {
 
 // ─────────────────────────── BG team notifications ──────────────────────────
 
-export async function emailVerifierStageSubmitted(opts: {
-  caseId: string; stage: StageType;
-}) {
-  const c = await db.case.findUnique({
-    where: { id: opts.caseId },
-    include: { assignedVerifier: true, candidate: { include: { user: true } } },
-  });
-  if (!c) return;
-  // Fall back to the BGV ops inbox when no verifier is assigned yet (the normal
-  // state for a freshly portal-created case) so bgv@ is always notified on a
-  // candidate stage submit instead of the notification being silently dropped.
-  const to = c.assignedVerifier?.email ?? env.APP_SUPPORT_EMAIL;
-  const candidateName = c.candidate.user.name ?? c.candidate.user.email;
-  await safeSend({
-    to,
-    subject: `[Launch Pad] ${stageLabels[opts.stage]} submitted — ${c.reference}`,
-    html: tpl.stageSubmitted(c.reference, stageLabels[opts.stage], candidateName).replace(
-      "/work/case",
-      `/work/case/${c.id}`
-    ),
-    templateId: "stage.submitted",
-    caseId: c.id,
-  });
-  // In-app bell for the BGV desk (the email above can be missed / unassigned).
-  await notifyStageSubmitted(c.id, {
-    stageLabel: stageLabels[opts.stage],
-    candidateName,
-    reference: c.reference,
-  });
-}
+// (Per-stage verifier emails were retired in favour of the in-app bell —
+// see notifyStageSubmittedFor in server/actions/stage.ts — plus the ONE
+// consolidated email at final submit, emailProfileSubmittedForBgv below.)
 
 export async function emailVerifierAssigned(opts: {
   caseId: string; verifierId: string;

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import { requireRole } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { storage } from "@/lib/storage";
@@ -118,18 +119,30 @@ async function requireStageInCase(kase: { id: string; requiredStages: StageType[
 // candidate name + reference off the case and delegates to the shared helper.
 // Per-stage *emails* to the verifier are intentionally NOT sent here — the
 // verifier is emailed once at final "Submit profile for BGV".
+//
+// Best-effort: runs AFTER the stage is persisted as SUBMITTED, so a failure
+// here must not bubble into withStageErrors and falsely tell the candidate
+// the (already saved) submit failed.
 async function notifyStageSubmittedFor(caseId: string, type: StageType) {
-  const c = await db.case.findUnique({
-    where: { id: caseId },
-    include: { candidate: { include: { user: true } } },
-  });
-  if (!c) return;
-  const candidateName = c.candidate.user.name ?? c.candidate.user.email;
-  await notifyStageSubmitted(caseId, {
-    stageLabel: stageLabels[type],
-    candidateName,
-    reference: c.reference,
-  });
+  try {
+    const c = await db.case.findUnique({
+      where: { id: caseId },
+      include: { candidate: { include: { user: true } } },
+    });
+    if (!c) return;
+    const candidateName = c.candidate.user.name ?? c.candidate.user.email;
+    await notifyStageSubmitted(caseId, {
+      stageLabel: stageLabels[type],
+      candidateName,
+      reference: c.reference,
+    });
+  } catch (e) {
+    logger.error("notify.stage_submitted_failed", {
+      caseId,
+      stage: type,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 // ---------- DRAFTS (save progress without submitting) ----------
@@ -823,25 +836,29 @@ async function submitProfileForBgvImpl() {
   // Move the case to AWAITING_REVIEW (no-op if already there / further along).
   await transitionCaseStatus(kase.id);
 
-  // ONE consolidated email to the BGV team — idempotent per case.
+  // Idempotent per case: the EmailLog row written by the consolidated email
+  // doubles as the "already handed off" flag, and it gates ALL the side
+  // effects — a double-click / stale-tab resubmit must not re-spam the desk's
+  // bell or duplicate the audit trail (the email alone was guarded before).
   const already = await db.emailLog.findFirst({
     where: { caseId: kase.id, templateId: "profile.submitted.bgv" },
+    select: { id: true },
   });
   if (!already) {
     await emailProfileSubmittedForBgv({ caseId: kase.id });
+
+    // In-app bell for the desk. No PROFILE_SUBMITTED kind exists — reuse GENERIC
+    // (the same kind notifyStageSubmitted uses for its "all stages submitted" ping).
+    const candidateName = cand.user.name ?? cand.user.email;
+    await notifyBgvTeam(kase.id, {
+      kind: "GENERIC",
+      title: "Profile submitted for BGV",
+      body: `${candidateName} has submitted their full profile (${kase.reference}). The case is ready for review.`,
+      link: `/work/case/${kase.id}`,
+    });
+
+    await audit({ actorId: s.user.id, caseId: kase.id, action: "profile.submitted", target: kase.reference });
   }
-
-  // In-app bell for the desk. No PROFILE_SUBMITTED kind exists — reuse GENERIC
-  // (the same kind notifyStageSubmitted uses for its "all stages submitted" ping).
-  const candidateName = cand.user.name ?? cand.user.email;
-  await notifyBgvTeam(kase.id, {
-    kind: "GENERIC",
-    title: "Profile submitted for BGV",
-    body: `${candidateName} has submitted their full profile (${kase.reference}). The case is ready for review.`,
-    link: `/work/case/${kase.id}`,
-  });
-
-  await audit({ actorId: s.user.id, caseId: kase.id, action: "profile.submitted", target: kase.reference });
 
   revalidatePath("/me");
   redirect("/me?submitted=1");

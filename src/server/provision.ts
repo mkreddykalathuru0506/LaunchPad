@@ -72,6 +72,14 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
   // Required BGV stages by candidate type — interns drop EMPLOYMENT; veteran is additive.
   const stages = stagesForCandidateType(input.candidateType, input.requireVeteran === true);
 
+  // Whether a CASE already exists decides the "new case" notification below —
+  // the USER pre-existing is the wrong signal (a user whose earlier case was
+  // deleted still gets a brand-new case that the desk must hear about).
+  const existingCase = await db.case.findUnique({
+    where: { candidateId: candidate.id },
+    select: { id: true },
+  });
+
   // Reference allocation + collision retry live in withUniqueCaseReference —
   // the same path the portal webhook uses (count()+1 collided after any case
   // deletion and 500'd the manager/admin create flows).
@@ -105,9 +113,11 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
     where: { caseId: kase.id, type: { notIn: stages }, status: "NOT_STARTED" },
   });
 
-  // Alert the BGV desk that a new candidate case exists (in-app bell). Only on
-  // first creation — re-running provisioning for an existing case shouldn't spam.
-  if (!existing) {
+  // Alert the BGV desk that a new candidate case exists (in-app bell). Only
+  // when the CASE is new — re-running provisioning for an existing case
+  // shouldn't spam. (notifyBgvTeam is best-effort and never throws, so a
+  // notification hiccup can't fail provisioning after the case exists.)
+  if (!existingCase) {
     await notifyBgvTeam(kase.id, {
       kind: "CASE_CREATED",
       title: `New candidate — ${kase.reference}`,

@@ -33,18 +33,19 @@ async function main() {
   });
   console.log(`Admin user: ${admin.email}`);
 
-  // ── Dedicated BGV operator login (permanent — recreated on every deploy) ──
+  // ── Dedicated BGV operator login (permanent — re-asserted on every deploy) ──
   // Same mailbox that receives the "profile submitted for BGV" notifications, so
   // the person reading that inbox signs in with the same address. The password
   // comes ONLY from BGV_ADMIN_PASSWORD (a deploy secret) — never a hardcoded
   // default, so we don't ship a known admin credential. Skipped when unset.
-  // Create-only (won't reset the password if the account already exists),
-  // matching the first-run admin above.
+  // The password is create-only (won't reset one that's been changed), but
+  // role + active ARE healed on every run — "permanent" must survive an
+  // accidental demotion/deactivation in the admin UI, not just first creation.
   const bgvPasswordPlain = process.env.BGV_ADMIN_PASSWORD;
   if (bgvPasswordPlain && bgvPasswordPlain.trim().length > 0) {
     const bgv = await prisma.user.upsert({
       where: { email: "bgv@elvixit.com" },
-      update: {},
+      update: { role: Role.ADMIN, active: true },
       create: {
         email: "bgv@elvixit.com",
         name: "BGV Team",
