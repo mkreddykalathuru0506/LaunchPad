@@ -1,5 +1,6 @@
-import { Rocket } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
+import logoMark from "../../../public/logo.png";
 
 export function Logo({
   className,
@@ -11,17 +12,18 @@ export function Logo({
   forSidebar?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      {/* On permanently-navy surfaces (sidebar, login panel) the navy primary
-          chip would vanish in light mode — use the sky sidebar accent there. */}
-      <span
-        className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-lg shadow-sm",
-          forSidebar ? "bg-sidebar-primary text-sidebar" : "bg-primary text-primary-foreground"
-        )}
-      >
-        <Rocket className="h-5 w-5" aria-hidden />
-      </span>
+    <div className={cn("flex items-center gap-2.5", className)}>
+      {/* The mark already carries the "ELVIXIT" wordmark inside the artwork,
+          so the company name is never repeated as adjacent text. The label
+          beside it is the PRODUCT name (Launch Pad) only. */}
+      <Image
+        src={logoMark}
+        alt="ElvixIT"
+        width={36}
+        height={36}
+        priority
+        className="h-9 w-9 shrink-0 object-contain"
+      />
       {withWordmark && (
         <div className="leading-tight">
           <div
@@ -38,7 +40,7 @@ export function Logo({
               forSidebar ? "text-white/70" : "text-muted-foreground"
             )}
           >
-            ElvixIT · Background Verification
+            Background Verification
           </div>
         </div>
       )}

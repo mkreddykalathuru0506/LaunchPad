@@ -6,11 +6,10 @@ function wrap(title: string, body: string) {
 <body style="font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;padding:32px 0;margin:0">
   <table align="center" width="560" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
     <tr><td style="padding:24px 28px;border-bottom:1px solid #e2e8f0">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-block;width:28px;height:28px;background:#6366f1;border-radius:6px"></span>
-        <strong style="font-size:14px">Launch Pad</strong>
-        <span style="margin-left:auto;font-size:11px;color:#64748b;letter-spacing:.08em;text-transform:uppercase">ElvixIT · BGV</span>
-      </div>
+      <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+        <td style="vertical-align:middle"><img src="${env.APP_URL}/logo.png" width="28" height="28" alt="ElvixIT" style="display:block;width:28px;height:28px"></td>
+        <td style="vertical-align:middle;padding-left:8px"><strong style="font-size:14px;color:#0f172a">Launch Pad</strong></td>
+      </tr></table>
     </td></tr>
     <tr><td style="padding:24px 28px;font-size:14px;line-height:1.6;color:#0f172a">${body}</td></tr>
     <tr><td style="padding:18px 28px;background:#f8fafc;color:#64748b;font-size:11px;border-top:1px solid #e2e8f0">
