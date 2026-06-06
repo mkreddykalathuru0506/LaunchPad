@@ -98,8 +98,8 @@ export default async function ReviewPage({
               <CardElevHeader>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <CardElevTitle>{stageLabels[type]}</CardElevTitle>
-                    <CardElevDescription>
+                    <CardElevTitle className="font-display">{stageLabels[type]}</CardElevTitle>
+                    <CardElevDescription className="mt-1.5">
                       <StageStatusBadge status={status} />
                     </CardElevDescription>
                   </div>
@@ -269,13 +269,13 @@ function StageSummary({
 }
 
 function Rows({ children }: { children: React.ReactNode }) {
-  return <div className="divide-y divide-border/60">{children}</div>;
+  return <div className="divide-y divide-dashed divide-border/70">{children}</div>;
 }
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5 text-sm">
-      <span className="shrink-0 text-muted-foreground">{k}</span>
+    <div className="flex items-start justify-between gap-4 py-2 text-sm">
+      <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{k}</span>
       <span className="text-right font-medium">{v || "—"}</span>
     </div>
   );

@@ -46,7 +46,7 @@ export default async function IdentityStagePage({ searchParams }: { searchParams
         <FieldGrid>
           <Field label="Document type" htmlFor="documentType" required>
             <select id="documentType" name="documentType" required disabled={readOnly} defaultValue={draft.documentType ?? "PASSPORT"}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+              className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring disabled:cursor-not-allowed disabled:opacity-50">
               <option value="PASSPORT">Passport</option>
               <option value="DRIVER_LICENSE">Driver License</option>
               <option value="AADHAAR">Aadhaar (IN)</option>

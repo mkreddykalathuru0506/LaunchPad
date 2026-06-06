@@ -28,18 +28,33 @@ export default async function VideoStagePage({ searchParams }: { searchParams?: 
   return (
     <StageShell type="VIDEO" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
       <form action={submitVideoStage} className="space-y-6">
-        <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-          <div className="font-semibold">Read this phrase aloud while recording:</div>
-          <div className="mt-2 text-lg tracking-wide">"{phrase}"</div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Hold your photo ID next to your face while reading. Recording must be 10–30 seconds.
-          </p>
+        {/* Liveness phrase — passport-style read-aloud card. */}
+        <section className="rounded-2xl border border-dashed p-5">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Liveness Phrase · Read Aloud
+          </span>
+          <div className="mt-3 rounded-xl border border-dashed bg-secondary/40 px-4 py-3 font-display text-xl font-semibold tracking-wide">
+            &ldquo;{phrase}&rdquo;
+          </div>
+          <ol className="mt-4 space-y-3">
+            {[
+              "Hold your photo ID next to your face while reading.",
+              "Recording must be 10–30 seconds.",
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm">
+                <span aria-hidden className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary font-mono text-[10px] font-semibold tabnum text-muted-foreground">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="text-muted-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
           <input type="hidden" name="phrase" value={phrase} />
-        </div>
+        </section>
         <FileField name="recording" label="Upload your recording" accept="video/*"
           hint="MP4 / MOV / WebM. Max 200 MB." />
         {savedRecording && (
-          <p className="text-sm text-muted-foreground">Saved in your draft: <span className="font-medium">{savedRecording.filename}</span>. Re-select only if you want to replace it.</p>
+          <p className="font-mono text-[11px] tracking-wide text-muted-foreground">Saved in draft: <span className="font-medium text-foreground">{savedRecording.filename}</span> · re-select only to replace.</p>
         )}
         <StageFormFooter stageType="VIDEO" submitLabel="Submit video stage" />
       </form>

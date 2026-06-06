@@ -17,16 +17,24 @@ export default async function DocumentsPage() {
       {docs.length === 0 ? (
         <Empty title="No documents yet" description="Documents you upload through any stage will appear here." />
       ) : (
-        <Card>
+        <Card className="rounded-2xl">
+          <div className="flex items-center justify-between gap-2 border-b border-dashed px-4 py-3">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Document Ledger
+            </span>
+            <span className="font-mono text-[10px] tracking-wide text-muted-foreground tabnum">
+              {docs.length} file{docs.length === 1 ? "" : "s"}
+            </span>
+          </div>
           <CardContent className="p-0">
             <Table>
               <THead>
                 <TR>
-                  <TH>Filename</TH>
-                  <TH>Kind</TH>
-                  <TH>Size</TH>
-                  <TH>SHA-256</TH>
-                  <TH>Uploaded</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Filename</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Kind</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Size</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">SHA-256</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Uploaded</TH>
                 </TR>
               </THead>
               <TBody>

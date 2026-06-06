@@ -8,6 +8,7 @@ import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitVeteranStage } from "@/server/actions/stage";
 import { draftFields, isoDateValue } from "@/lib/stage-draft";
 import { Empty } from "@/components/ui/empty";
+import { Medal } from "lucide-react";
 
 export default async function VeteranStagePage({ searchParams }: { searchParams?: { err?: string; saved?: string } }) {
   const session = await requireRole("CANDIDATE");
@@ -28,10 +29,21 @@ export default async function VeteranStagePage({ searchParams }: { searchParams?
   return (
     <StageShell type="VETERAN" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
       <form action={submitVeteranStage} className="space-y-6">
-        <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-          Reporting veteran status is voluntary and protected under USERRA. Information is used only to
-          confirm eligibility for veteran-preference programs.
-        </p>
+        {/* USERRA voluntary-disclosure notice — info dossier card. */}
+        <section className="rounded-2xl border border-dashed border-brand/40 bg-accent/30 p-4">
+          <div className="flex items-center gap-2">
+            <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand/10 text-brand [&>svg]:h-3.5 [&>svg]:w-3.5">
+              <Medal />
+            </span>
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Voluntary Disclosure · USERRA
+            </span>
+          </div>
+          <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
+            Reporting veteran status is voluntary and protected under USERRA. Information is used only to
+            confirm eligibility for veteran-preference programs.
+          </p>
+        </section>
         <FieldGrid>
           <Field label="Branch of service" htmlFor="branch" required>
             <Input id="branch" name="branch" required defaultValue={dv("branch", rec?.branch)} />
@@ -47,7 +59,7 @@ export default async function VeteranStagePage({ searchParams }: { searchParams?
           </Field>
           <Field label="Character of service" htmlFor="characterOfService" className="sm:col-span-2">
             <select id="characterOfService" name="characterOfService" defaultValue={dv("characterOfService", rec?.characterOfService)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+              className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring">
               <option value="">Select…</option>
               <option>Honorable</option>
               <option>General</option>

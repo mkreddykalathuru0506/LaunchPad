@@ -52,7 +52,7 @@ export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
                 name={`emp_${i}_type`}
                 required
                 defaultValue={v(i, "type") || "FullTime"}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring"
+                className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring"
               >
                 <option>FullTime</option>
                 <option>PartTime</option>

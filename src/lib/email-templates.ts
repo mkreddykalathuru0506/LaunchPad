@@ -9,7 +9,7 @@ function wrap(title: string, body: string) {
       <div style="display:flex;align-items:center;gap:8px">
         <span style="display:inline-block;width:28px;height:28px;background:#6366f1;border-radius:6px"></span>
         <strong style="font-size:14px">Launch Pad</strong>
-        <span style="margin-left:auto;font-size:11px;color:#64748b;letter-spacing:.08em;text-transform:uppercase">ElivixIT · BGV</span>
+        <span style="margin-left:auto;font-size:11px;color:#64748b;letter-spacing:.08em;text-transform:uppercase">ElvixIT · BGV</span>
       </div>
     </td></tr>
     <tr><td style="padding:24px 28px;font-size:14px;line-height:1.6;color:#0f172a">${body}</td></tr>
@@ -25,7 +25,7 @@ export const tpl = {
     return wrap(
       `Invitation: ${reference}`,
       `<p>Hi ${name},</p>
-       <p>You've been invited by ElivixIT to complete your background verification through <b>Launch Pad</b>.</p>
+       <p>You've been invited by ElvixIT to complete your background verification through <b>Launch Pad</b>.</p>
        <p><b>Case reference:</b> ${reference}<br/>
        <b>Temporary password:</b> <code>${tempPassword}</code> (please change after first sign-in).</p>
        <p><a href="${env.APP_URL}/login" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Sign in to Launch Pad</a></p>`
@@ -123,7 +123,7 @@ export const tpl = {
     return wrap(
       `Reference request for ${candidateName}`,
       `<p>Hi ${refName},</p>
-       <p>${candidateName} has applied to a role at ElivixIT and has listed you as a professional reference. We'd be grateful for a few minutes of your time.</p>
+       <p>${candidateName} has applied to a role at ElvixIT and has listed you as a professional reference. We'd be grateful for a few minutes of your time.</p>
        <p>Please complete the short structured questionnaire here:</p>
        <p><a href="${link}" style="display:inline-block;background:#6366f1;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Provide your reference</a></p>
        <p style="color:#64748b;font-size:12px">Case ID: ${reference} · Your responses are confidential and shared only with the hiring team.</p>`
@@ -133,7 +133,7 @@ export const tpl = {
     return wrap(
       `Education verification request — ${candidate}`,
       `<p>To the Registrar of <b>${institution}</b>,</p>
-       <p>ElivixIT is conducting background verification for <b>${candidate}</b>, who lists the following qualification:</p>
+       <p>ElvixIT is conducting background verification for <b>${candidate}</b>, who lists the following qualification:</p>
        <ul>
          <li><b>Degree:</b> ${degree}</li>
          <li><b>Institution:</b> ${institution}</li>
@@ -146,7 +146,7 @@ export const tpl = {
     return wrap(
       `Employment verification — ${candidate}`,
       `<p>Hi ${managerName},</p>
-       <p>ElivixIT is conducting background verification for <b>${candidate}</b>, who lists the following employment with <b>${employer}</b>:</p>
+       <p>ElvixIT is conducting background verification for <b>${candidate}</b>, who lists the following employment with <b>${employer}</b>:</p>
        <ul>
          <li><b>Role:</b> ${role}</li>
          <li><b>Employer:</b> ${employer}</li>
@@ -159,7 +159,7 @@ export const tpl = {
     return wrap(
       `Your verifier — ${reference}`,
       `<p>Hi ${name},</p>
-       <p><b>${verifierName}</b> from the ElivixIT BG team has been assigned to your case <b>${reference}</b>.</p>
+       <p><b>${verifierName}</b> from the ElvixIT BG team has been assigned to your case <b>${reference}</b>.</p>
        <p>If you have any questions, contact <a href="mailto:${env.APP_SUPPORT_EMAIL}">${env.APP_SUPPORT_EMAIL}</a>.</p>`
     );
   },

@@ -7,19 +7,28 @@ import { Input } from "@/components/ui/input";
 import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitAddressStage } from "@/server/actions/stage";
 import { draftFields, draftFiles, isoDateValue } from "@/lib/stage-draft";
+import { MapPin } from "lucide-react";
 
 function AddressBlock({
-  kind, prefill, draft, savedProof,
+  kind, section, prefill, draft, savedProof,
 }: {
   kind: "CURRENT" | "PERMANENT";
+  section: string;
   prefill?: { line1?: string; line2?: string | null; city?: string; state?: string; postalCode?: string; country?: string; fromDate?: Date | null } | null;
   draft: Record<string, string>;
   savedProof?: { filename: string };
 }) {
   const dv = (field: string, fallback?: string | null) => draft[`${kind}_${field}`] ?? fallback ?? "";
   return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-3 text-sm font-semibold">{kind === "CURRENT" ? "Current address" : "Permanent address"}</div>
+    <section className="rounded-2xl border border-dashed p-5">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          Section {section} · {kind === "CURRENT" ? "Current Address" : "Permanent Address"}
+        </span>
+        <span aria-hidden className="text-brand [&>svg]:h-4 [&>svg]:w-4">
+          <MapPin />
+        </span>
+      </div>
       <FieldGrid>
         <Field label="Address line 1" htmlFor={`${kind}_line1`} required className="sm:col-span-2">
           <Input id={`${kind}_line1`} name={`${kind}_line1`} defaultValue={dv("line1", prefill?.line1)} required />
@@ -47,10 +56,10 @@ function AddressBlock({
         <FileField name={`${kind}_proof`} label="Address proof" accept="image/*,.pdf"
           hint="Utility bill, lease, or bank statement (less than 90 days old)." />
         {savedProof && (
-          <p className="mt-2 text-sm text-muted-foreground">Saved: <span className="font-medium">{savedProof.filename}</span>. Re-select only if you want to replace it.</p>
+          <p className="mt-2 font-mono text-[11px] tracking-wide text-muted-foreground">Saved: <span className="font-medium text-foreground">{savedProof.filename}</span> · re-select only to replace.</p>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -75,8 +84,8 @@ export default async function AddressStagePage({ searchParams }: { searchParams?
   return (
     <StageShell type="ADDRESS" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
       <form action={submitAddressStage} className="space-y-6">
-        <AddressBlock kind="CURRENT" prefill={current} draft={draft} savedProof={savedProofFor("CURRENT", current?.proofDocId)} />
-        <AddressBlock kind="PERMANENT" prefill={permanent} draft={draft} savedProof={savedProofFor("PERMANENT", permanent?.proofDocId)} />
+        <AddressBlock kind="CURRENT" section="01" prefill={current} draft={draft} savedProof={savedProofFor("CURRENT", current?.proofDocId)} />
+        <AddressBlock kind="PERMANENT" section="02" prefill={permanent} draft={draft} savedProof={savedProofFor("PERMANENT", permanent?.proofDocId)} />
         <StageFormFooter stageType="ADDRESS" submitLabel="Submit address stage" />
       </form>
     </StageShell>

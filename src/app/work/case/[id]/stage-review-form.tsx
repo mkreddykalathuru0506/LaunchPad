@@ -11,25 +11,43 @@ export function StageReviewForm({ stageId }: { stageId: string; stageType: strin
 
   if (decision === null) {
     return (
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-3">
-        <Button variant="success" size="sm" onClick={() => setDecision("APPROVED")}>
-          <CheckCircle2 aria-hidden="true" className="h-4 w-4" /> Approve
-        </Button>
-        <Button variant="warning" size="sm" onClick={() => setDecision("NEEDS_CORRECTION")}>
-          <MessageSquareWarning aria-hidden="true" className="h-4 w-4" /> Request correction
-        </Button>
-        <Button variant="destructive" size="sm" onClick={() => setDecision("REJECTED")}>
-          <XCircle aria-hidden="true" className="h-4 w-4" /> Reject
-        </Button>
+      <div className="space-y-2 rounded-2xl border border-dashed bg-muted/30 p-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          Review · Decision
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="success" size="sm" onClick={() => setDecision("APPROVED")}>
+            <CheckCircle2 aria-hidden="true" className="h-4 w-4" /> Approve
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-warning/60 text-warning-foreground hover:bg-warning/10 dark:text-warning"
+            onClick={() => setDecision("NEEDS_CORRECTION")}
+          >
+            <MessageSquareWarning aria-hidden="true" className="h-4 w-4" /> Request correction
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-destructive/60 text-destructive hover:bg-destructive/10"
+            onClick={() => setDecision("REJECTED")}
+          >
+            <XCircle aria-hidden="true" className="h-4 w-4" /> Reject
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <form action={decideStage} className="space-y-3 rounded-lg border bg-muted/30 p-3">
+    <form action={decideStage} className="space-y-3 rounded-2xl border border-dashed bg-muted/30 p-3">
       <input type="hidden" name="stageId" value={stageId} />
       <input type="hidden" name="decision" value={decision} />
-      <div className="text-sm font-medium">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        Review · {decision.replace("_", " ")}
+      </p>
+      <div className="text-[13px] font-medium">
         {decision === "APPROVED" && "Approving stage — optional note to candidate:"}
         {decision === "REJECTED" && "Rejecting stage — reason (sent to candidate):"}
         {decision === "NEEDS_CORRECTION" && "Requesting correction — what does the candidate need to fix?"}
@@ -42,11 +60,16 @@ export function StageReviewForm({ stageId }: { stageId: string; stageType: strin
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setDecision(null)}>Cancel</Button>
-        <Button type="submit" size="sm" variant={decision === "APPROVED" ? "success" : decision === "REJECTED" ? "destructive" : "warning"}>
-          Confirm {decision.toLowerCase().replace("_", " ")}
-        </Button>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+          {comment.length} chars
+        </span>
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setDecision(null)}>Cancel</Button>
+          <Button type="submit" size="sm" variant={decision === "APPROVED" ? "success" : decision === "REJECTED" ? "destructive" : "warning"}>
+            Confirm {decision.toLowerCase().replace("_", " ")}
+          </Button>
+        </div>
       </div>
     </form>
   );

@@ -28,17 +28,27 @@ export function StageShell({
         <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to dashboard
       </Link>
 
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl">
+        <CardHeader className="border-b border-dashed">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle>{stageLabels[type]}</CardTitle>
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                Stage dossier · {type}
+              </div>
+              <CardTitle className="mt-1 font-display">{stageLabels[type]}</CardTitle>
               <CardDescription>{stageBlurbs[type]}</CardDescription>
             </div>
-            <StageStatusBadge status={status} />
+            <div className="flex flex-col items-end gap-1.5">
+              <StageStatusBadge status={status} />
+              {stage?.submittedAt && (
+                <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Submitted {formatDateTime(stage.submittedAt)}
+                </span>
+              )}
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {saved && !error && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-success/40 bg-success/10 p-3">
               <Save className="mt-0.5 h-4 w-4 text-success" aria-hidden="true" />

@@ -13,9 +13,15 @@ export default async function NewCase() {
   return (
     <>
       <PageHeader title="New case" description="Invite a candidate and create their verification case." />
-      <Card>
+      <Card className="rounded-2xl">
         <CardContent className="p-6">
           <form action={createCase} className="space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                New Case · Candidate Details
+              </span>
+              <span aria-hidden className="hairline flex-1" />
+            </div>
             <FieldGrid>
               <Field label="Candidate email" htmlFor="email" required>
                 <Input id="email" name="email" type="email" required />
@@ -25,7 +31,7 @@ export default async function NewCase() {
               </Field>
               <Field label="Type" htmlFor="candidateType" required>
                 <select id="candidateType" name="candidateType" required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+                  className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring">
                   <option value="INTERN">Intern</option>
                   <option value="CANDIDATE">Candidate</option>
                   <option value="TRAINER">Trainer</option>
@@ -43,20 +49,20 @@ export default async function NewCase() {
               </Field>
               <Field label="Assigned verifier" htmlFor="assignedVerifierId">
                 <select id="assignedVerifierId" name="assignedVerifierId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
+                  className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring">
                   <option value="">Unassigned</option>
                   {verifiers.map((v) => <option key={v.id} value={v.id}>{v.name ?? v.email}</option>)}
                 </select>
               </Field>
               <Field label="Require veteran stage" htmlFor="requireVeteran">
-                <label className="inline-flex h-10 items-center gap-2 text-sm">
-                  <input id="requireVeteran" name="requireVeteran" type="checkbox" className="h-4 w-4" />
+                <label className="inline-flex h-11 items-center gap-2 text-sm">
+                  <input id="requireVeteran" name="requireVeteran" type="checkbox" className="h-4 w-4 accent-brand" />
                   Candidate has self-identified as veteran
                 </label>
               </Field>
             </FieldGrid>
             <div className="flex justify-end">
-              <SubmitButton>Create case & send invite</SubmitButton>
+              <SubmitButton variant="brand">Create case &amp; send invite</SubmitButton>
             </div>
           </form>
         </CardContent>

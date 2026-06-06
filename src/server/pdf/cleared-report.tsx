@@ -25,7 +25,7 @@ function Report({ data }: { data: any }) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.brand}>Launch Pad · Clearance Report</Text>
-          <Text style={styles.small}>ElivixIT Background Verification · Generated {formatDateTime(new Date())}</Text>
+          <Text style={styles.small}>ElvixIT Background Verification · Generated {formatDateTime(new Date())}</Text>
         </View>
 
         <Text style={styles.h1}>Background Verification: Cleared</Text>

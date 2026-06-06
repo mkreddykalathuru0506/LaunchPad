@@ -2,24 +2,26 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import { Stamp } from "@/components/v2/stamp";
+import { WorkflowPipeline } from "@/components/landing/workflow-pipeline";
 import {
   ShieldCheck, Fingerprint, GraduationCap, Briefcase, FileSearch,
-  Camera, Video, MapPin, Medal, ArrowRight, CheckCircle2, Lock, ScanLine,
+  Camera, Video, MapPin, Medal, ArrowRight, CheckCircle2, Lock,
 } from "lucide-react";
 
 // ─── Clearance-dossier landing ───────────────────────────────────────────────
 // Fixed navy hero + CTA band (identical both themes), MRZ strips, stamp marks,
-// bento stage grid, connected lifecycle rail. Single sky accent throughout.
+// animated verification pipeline, connected lifecycle rail. Sky accent only.
 
-const stages = [
-  { icon: Fingerprint, title: "Identity", blurb: "Government ID + biometric match.", big: true },
-  { icon: MapPin, title: "Address", blurb: "Current + permanent with proof." },
-  { icon: GraduationCap, title: "Education", blurb: "SSC, Intermediate, Degree verification." },
-  { icon: Briefcase, title: "Employment", blurb: "HR-confirmed work history." },
-  { icon: FileSearch, title: "Criminal", blurb: "Multi-jurisdiction record search." },
-  { icon: Camera, title: "Photo", blurb: "Liveness + face match." },
-  { icon: Video, title: "Video", blurb: "Recorded prompt-phrase capture." },
-  { icon: Medal, title: "Veteran Status", blurb: "Optional, USERRA-compliant." },
+// Hero dossier ledger — the eight stages, mid-verification.
+const ledger = [
+  { icon: Fingerprint, label: "IDENTITY", status: "APPROVED", cls: "text-emerald-400" },
+  { icon: MapPin, label: "ADDRESS", status: "APPROVED", cls: "text-emerald-400" },
+  { icon: GraduationCap, label: "EDUCATION", status: "APPROVED", cls: "text-emerald-400" },
+  { icon: Briefcase, label: "EMPLOYMENT", status: "IN REVIEW", cls: "text-sky-400" },
+  { icon: FileSearch, label: "CRIMINAL", status: "PENDING", cls: "text-slate-500" },
+  { icon: Camera, label: "PHOTO", status: "PENDING", cls: "text-slate-500" },
+  { icon: Video, label: "VIDEO", status: "PENDING", cls: "text-slate-500" },
+  { icon: Medal, label: "VETERAN", status: "OPTIONAL", cls: "text-slate-500" },
 ];
 
 const lifecycle = [
@@ -29,7 +31,7 @@ const lifecycle = [
   { step: "04", title: "Clear", text: "Signed PDF clearance report when every stage is approved." },
 ];
 
-const MRZ = "LP<2026<ELIVIXIT<BGV<<IDENTITY<ADDRESS<EDUCATION<EMPLOYMENT<CRIMINAL<PHOTO<VIDEO<<CLEARED<<<<";
+const MRZ = "LP<2026<ELVIXIT<BGV<<IDENTITY<ADDRESS<EDUCATION<EMPLOYMENT<CRIMINAL<PHOTO<VIDEO<<CLEARED<<<<";
 
 function MrzStrip({ className = "" }: { className?: string }) {
   return (
@@ -66,8 +68,8 @@ export default function Home() {
         <div className="container relative grid items-center gap-14 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">
           {/* Copy */}
           <div className="animate-fade-in-up">
-            <div className="font-mono text-[11px] font-medium uppercase tracking-[0.32em] text-sky-300/90">
-              {"// Elivixit internal · BGV platform"}
+            <div className="font-mono text-xs font-medium tracking-[0.18em] text-sky-300/90">
+              {"// ElvixIT internal · BGV platform"}
             </div>
             <h1 className="mt-5 font-display text-5xl font-bold leading-[1.04] tracking-tight text-white sm:text-6xl lg:text-7xl">
               Trust,{" "}
@@ -105,7 +107,7 @@ export default function Home() {
             </dl>
           </div>
 
-          {/* Dossier mock */}
+          {/* Dossier mock — the eight stages, mid-verification */}
           <div className="relative animate-fade-in-up [animation-delay:120ms]" aria-hidden>
             <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-sky-400/10 blur-3xl" />
             <div className="relative mx-auto max-w-md rotate-1 rounded-2xl border border-white/15 bg-slate-900/90 shadow-2xl shadow-black/50 backdrop-blur transition-transform duration-300 hover:rotate-0">
@@ -114,39 +116,30 @@ export default function Home() {
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-slate-400">Case file</div>
                 <div className="font-mono text-xs font-bold tracking-widest text-sky-300">LP-2026-0042</div>
               </div>
-              {/* Subject */}
-              <div className="flex items-center gap-4 px-5 py-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-white/15 bg-slate-800 font-display text-lg font-bold text-sky-300">
-                  AR
+              {/* Ledger header */}
+              <div className="flex items-center justify-between px-5 pb-1 pt-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+                  Verification ledger · 8 stages
                 </div>
-                <div className="min-w-0">
-                  <div className="truncate font-display text-base font-semibold text-white">Aanya Raghavan</div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">Backend Engineer · Candidate</div>
-                </div>
-                <Stamp tone="success" tilt className="ml-auto shrink-0 bg-slate-950/40">Cleared</Stamp>
+                <Stamp tone="brand" tilt className="shrink-0 bg-slate-950/40">In review</Stamp>
               </div>
               {/* Stage ledger */}
-              <ul className="space-y-1 px-5 pb-4 font-mono text-[11px]">
-                {[
-                  ["IDENTITY", "APPROVED", "text-emerald-400"],
-                  ["ADDRESS", "APPROVED", "text-emerald-400"],
-                  ["EDUCATION", "APPROVED", "text-emerald-400"],
-                  ["EMPLOYMENT", "APPROVED", "text-emerald-400"],
-                  ["CRIMINAL", "APPROVED", "text-emerald-400"],
-                  ["PHOTO", "APPROVED", "text-emerald-400"],
-                  ["VIDEO", "APPROVED", "text-emerald-400"],
-                ].map(([k, v, cls]) => (
-                  <li key={k} className="flex items-baseline gap-2 text-slate-400">
-                    <span>{k}</span>
+              <ul className="space-y-1.5 px-5 pb-4 pt-2 font-mono text-[11px]">
+                {ledger.map(({ icon: Icon, label, status, cls }) => (
+                  <li key={label} className="flex items-center gap-2.5 text-slate-400">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/5 text-sky-300/80 ring-1 ring-inset ring-white/10">
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span>{label}</span>
                     <span className="flex-1 border-b border-dotted border-white/15" />
-                    <span className={`font-semibold tracking-widest ${cls}`}>{v}</span>
+                    <span className={`font-semibold tracking-widest ${cls}`}>{status}</span>
                   </li>
                 ))}
               </ul>
               {/* MRZ */}
               <div className="border-t border-dashed border-white/15 px-5 py-3">
                 <div className="mrz text-[10px] text-slate-500">
-                  {"LP<2026<0042<<RAGHAVAN<<AANYA<<<CLEARED<<<"}
+                  {"LP<2026<0042<<8<STAGES<<3<APPROVED<<IN<REVIEW<<<"}
                 </div>
               </div>
             </div>
@@ -174,32 +167,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {stages.map(({ icon: Icon, title, blurb, big }) => (
-              <div
-                key={title}
-                className={`group relative overflow-hidden rounded-2xl border bg-card p-6 transition-all hover:-translate-y-1 hover:border-brand/40 hover:shadow-xl hover:shadow-brand/5 ${
-                  big ? "sm:col-span-2 sm:row-span-2 sm:p-8" : ""
-                }`}
-              >
-                <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-brand/60 via-brand/15 to-transparent" />
-                {big && (
-                  <div aria-hidden className="dot-grid absolute inset-0 opacity-50 [mask-image:radial-gradient(70%_60%_at_80%_20%,#000,transparent)]" />
-                )}
-                <div className={`relative flex items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-inset ring-brand/20 transition-colors group-hover:bg-brand group-hover:text-brand-foreground ${big ? "h-14 w-14" : "h-10 w-10"}`}>
-                  <Icon className={big ? "h-7 w-7" : "h-5 w-5"} aria-hidden />
-                </div>
-                <div className={`relative mt-5 font-display font-semibold ${big ? "text-2xl" : "text-base"}`}>{title}</div>
-                <p className={`relative mt-1.5 text-muted-foreground ${big ? "max-w-sm text-base" : "text-sm"}`}>{blurb}</p>
-                {big && (
-                  <div className="relative mt-8 inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    <ScanLine className="h-3.5 w-3.5 text-brand" aria-hidden />
-                    Biometric face-match against ID photo
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <WorkflowPipeline />
         </div>
       </section>
 
@@ -234,17 +202,17 @@ export default function Home() {
             <div className="font-mono text-[11px] font-medium uppercase tracking-[0.32em] text-brand">{"// Security"}</div>
             <h2 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Built for sensitive data</h2>
             <p className="mt-5 text-lg text-muted-foreground">
-              FCRA consent capture, append-only audit log, column-level encryption for
-              SSN / Aadhaar / DOB, signed short-TTL document URLs, and hard role
-              separation between candidates, verifiers, managers, and admins.
+              Your identity documents, ID numbers, and date of birth are handled like the
+              sensitive records they are — encrypted, access-controlled, and tracked from
+              the moment you upload them to the day you're cleared.
             </p>
             <ul className="mt-7 space-y-3.5 text-sm">
               {[
-                "Role-based access at middleware, page, and query layers",
-                "AES-256-GCM at rest for sensitive identity fields",
-                "Append-only audit log for every state transition",
-                "Signed, expiring URLs for all document downloads",
-                "Pluggable adapters for Onfido, Persona, Checkr, AuthBridge",
+                "ID numbers and date of birth are encrypted at rest",
+                "Only your assigned verification team can open your file",
+                "Every view, decision, and download is recorded in the audit trail",
+                "Document links are private, signed, and expire automatically",
+                "Your written consent is captured before any check is run",
               ].map((t) => (
                 <li key={t} className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
@@ -253,26 +221,52 @@ export default function Home() {
               ))}
             </ul>
           </div>
-          {/* Terminal card */}
-          <div className="relative">
-            <div aria-hidden className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-br from-brand/20 via-brand/5 to-transparent blur-2xl" />
+          {/* Protection ledger — what the platform does with YOUR data */}
+          <div className="relative" aria-hidden>
+            <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-br from-brand/20 via-brand/5 to-transparent blur-2xl" />
             <div className="overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-950 shadow-2xl">
-              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-                <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
-                <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
-                <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
-                <span className="ml-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">
-                  <Lock className="h-3 w-3" aria-hidden /> decide-stage · trace
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
+                <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                  <Lock className="h-3 w-3 text-sky-400" /> Data protection
                 </span>
+                <span className="font-mono text-[10px] font-bold tracking-widest text-emerald-400">AES-256 · AT REST</span>
               </div>
-              <pre className="overflow-x-auto p-5 font-mono text-xs leading-relaxed text-slate-400">
-{`POST /api/stages/:id/decide
-  ↳ middleware  requireSession + role guard      `}<span className="text-emerald-400">ok</span>{`
-  ↳ validate    zod body                          `}<span className="text-emerald-400">ok</span>{`
-  ↳ tx          update Stage → StageReview        `}<span className="text-emerald-400">ok</span>{`
-  ↳ audit       append-only event written         `}<span className="text-emerald-400">ok</span>{`
-  ↳ notify      candidate emailed on decision     `}<span className="text-sky-400">sent</span>
-              </pre>
+
+              {/* Encrypted fields, shown the way the team sees them */}
+              <ul className="space-y-2.5 px-5 py-4 font-mono text-[11px]">
+                {[
+                  ["AADHAAR NUMBER", "•••• •••• 4821"],
+                  ["DATE OF BIRTH", "••/••/••••"],
+                  ["PAN NUMBER", "•••••184F"],
+                ].map(([k, v]) => (
+                  <li key={k} className="flex items-center gap-2 text-slate-400">
+                    <span>{k}</span>
+                    <span className="flex-1 border-b border-dotted border-white/15" />
+                    <span className="tracking-widest text-slate-300">{v}</span>
+                    <span className="rounded bg-emerald-400/10 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-emerald-400">
+                      ENCRYPTED
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Human-readable audit trail */}
+              <div className="border-t border-dashed border-white/15 px-5 py-4">
+                <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-slate-500">Audit trail · live</div>
+                <ul className="mt-3 space-y-2.5 text-xs text-slate-300">
+                  {[
+                    ["14:02", "Identity stage approved by your verifier"],
+                    ["14:31", "Address proof viewed — BG team only"],
+                    ["15:10", "Clearance report issued & emailed to you"],
+                  ].map(([t, msg]) => (
+                    <li key={t} className="flex items-start gap-3">
+                      <span className="tabnum font-mono text-[10px] text-sky-400">{t}</span>
+                      <span className="flex-1">{msg}</span>
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -303,7 +297,7 @@ export default function Home() {
         <div className="container flex flex-col items-start justify-between gap-4 py-8 sm:flex-row sm:items-center">
           <Logo />
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            © {new Date().getFullYear()} ElivixIT · Launch Pad · Internal verification platform
+            © {new Date().getFullYear()} ElvixIT · Launch Pad · Internal verification platform
           </div>
         </div>
       </footer>

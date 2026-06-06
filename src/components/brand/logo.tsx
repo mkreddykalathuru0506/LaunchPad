@@ -34,11 +34,11 @@ export function Logo({
           </div>
           <div
             className={cn(
-              "text-[10px] uppercase tracking-[0.18em]",
-              forSidebar ? "text-white/60" : "text-muted-foreground"
+              "text-[11px] font-medium tracking-wide",
+              forSidebar ? "text-white/70" : "text-muted-foreground"
             )}
           >
-            ElivixIT · Background Verification
+            ElvixIT · Background Verification
           </div>
         </div>
       )}

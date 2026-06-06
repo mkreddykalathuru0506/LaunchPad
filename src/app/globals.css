@@ -204,6 +204,42 @@
     height: 1px;
     background: linear-gradient(90deg, transparent, hsl(var(--brand) / 0.5), transparent);
   }
+
+  /* ── Workflow pipeline (landing) ─────────────────────────────────────── */
+  /* Marching dashed spine — data flowing down the verification pipeline. */
+  .pipeline-spine {
+    background-image: repeating-linear-gradient(
+      180deg,
+      hsl(var(--brand) / 0.55) 0 6px,
+      transparent 6px 16px
+    );
+    animation: dash-march 1.2s linear infinite;
+  }
+  /* Pulse that travels the full spine. */
+  .pipeline-pulse {
+    animation: pulse-travel 7s ease-in-out infinite;
+  }
+  /* Scroll-reveal: hidden ONLY once JS arms the container (no-JS stays visible).
+     prefers-reduced-motion collapses the transition to an instant swap. */
+  [data-animate] .pipeline-step {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+  }
+  [data-animate] .pipeline-step.is-inview {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dash-march {
+  to { background-position-y: 16px; }
+}
+@keyframes pulse-travel {
+  0% { top: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
 }
 
 @keyframes shimmer {

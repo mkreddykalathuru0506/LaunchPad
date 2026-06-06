@@ -25,7 +25,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Launch Pad — Background Verification",
-  description: "Multi-stage onboarding and background verification platform for ElivixIT.",
+  description: "Multi-stage onboarding and background verification platform for ElvixIT.",
   applicationName: "Launch Pad",
   robots: "noindex, nofollow",
 };

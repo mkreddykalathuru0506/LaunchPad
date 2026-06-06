@@ -40,7 +40,7 @@ export default function Forgot({ searchParams }: { searchParams: { status?: stri
           {status?.kind === "success" && (
             <div
               role="status"
-              className="mb-4 flex items-start gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-xs text-success"
+              className="mb-4 flex items-start gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-2 text-xs text-success"
             >
               <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <span>{status.message}</span>
@@ -49,18 +49,21 @@ export default function Forgot({ searchParams }: { searchParams: { status?: stri
           {status?.kind === "error" && (
             <div
               role="alert"
-              className="mb-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              className="mb-4 flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
             >
               <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
               <span>{status.message}</span>
             </div>
           )}
           <form action={requestPasswordReset} className="space-y-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Access · Recovery
+            </p>
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-[13px]">Email</Label>
               <Input id="email" name="email" type="email" autoComplete="email" required />
             </div>
-            <SubmitButton type="submit" className="w-full">
+            <SubmitButton type="submit" variant="brand" className="w-full">
               <Mail className="h-4 w-4" aria-hidden />
               Send link
             </SubmitButton>
