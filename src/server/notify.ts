@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { requiredStagesForCase } from "@/lib/stages";
 import { Role, NotificationKind } from "@prisma/client";
 
 type BgvNotification = {
@@ -65,10 +66,21 @@ export async function notifyStageSubmitted(
     link: `/work/case/${caseId}`,
   });
 
-  const stages = await db.stage.findMany({ where: { caseId }, select: { status: true } });
+  // "Done" is judged against the case's REQUIRED set, not every raw stage row —
+  // a stray non-required row would otherwise suppress this signal forever.
+  const kase = await db.case.findUnique({
+    where: { id: caseId },
+    select: { requiredStages: true, stages: { select: { type: true, status: true } } },
+  });
+  if (!kase) return;
+  const required = requiredStagesForCase(kase, kase.stages);
+  const statusByType = new Map(kase.stages.map((s) => [s.type, s.status]));
   const allSubmitted =
-    stages.length > 0 &&
-    stages.every((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW" || s.status === "APPROVED");
+    required.length > 0 &&
+    required.every((t) => {
+      const st = statusByType.get(t);
+      return st === "SUBMITTED" || st === "UNDER_REVIEW" || st === "APPROVED";
+    });
   if (allSubmitted) {
     await notifyBgvTeam(caseId, {
       kind: "GENERIC",

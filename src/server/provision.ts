@@ -97,6 +97,14 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
     });
   }
 
+  // Re-provisioning with a changed candidate type (e.g. CANDIDATE → INTERN)
+  // shrinks the required set; drop rows for stages that are no longer required
+  // but ONLY untouched ones — anything the candidate started keeps its data
+  // (status math ignores non-required rows either way).
+  await db.stage.deleteMany({
+    where: { caseId: kase.id, type: { notIn: stages }, status: "NOT_STARTED" },
+  });
+
   // Alert the BGV desk that a new candidate case exists (in-app bell). Only on
   // first creation — re-running provisioning for an existing case shouldn't spam.
   if (!existing) {

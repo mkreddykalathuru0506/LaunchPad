@@ -8,6 +8,7 @@ import { CaseStatusBadge, StageStatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { stageLabels, formatDate, formatDateTime } from "@/lib/utils";
+import { computeCaseStatus } from "@/lib/stages";
 import { StageReviewForm } from "./stage-review-form";
 import { ManagerActions } from "./manager-actions";
 import { ArrowLeft, FileDown, FileText, MapPin, GraduationCap, Briefcase, Users, Medal } from "lucide-react";
@@ -252,7 +253,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
               caseId={kase.id}
               verifiers={verifiers.map((v) => ({ id: v.id, name: v.name ?? v.email }))}
               currentVerifierId={kase.assignedVerifierId}
-              canClear={kase.stages.every((s) => s.status === "APPROVED")}
+              canClear={computeCaseStatus(kase, kase.stages) === "CLEARED"}
               alreadyCleared={kase.status === "CLEARED"}
             />
           )}

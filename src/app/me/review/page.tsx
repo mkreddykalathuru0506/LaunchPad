@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { getCaseForCandidate } from "@/server/queries/case";
 import { submitProfileForBgv } from "@/server/actions/stage";
-import { stagesForCandidateType } from "@/lib/stages";
+import { requiredStagesForCase } from "@/lib/stages";
 import { stageLabels, formatDate } from "@/lib/utils";
 import { SectionHeading } from "@/components/v2/section-heading";
 import {
@@ -37,7 +37,10 @@ export default async function ReviewPage({
   }
 
   const kase = cand.case;
-  const required = stagesForCandidateType(cand.candidateType, cand.isVeteran);
+  // The case's provisioned required set — NOT re-derived from candidateType,
+  // which disagrees for portal cases with a custom requiredStages list (and
+  // would disable the submit button on stages that were never provisioned).
+  const required = requiredStagesForCase(kase, kase.stages);
   const byType = new Map(kase.stages.map((s) => [s.type, s]));
   const incomplete = required.filter((t) => !DONE.includes(byType.get(t)?.status ?? "NOT_STARTED"));
   const allDone = incomplete.length === 0;

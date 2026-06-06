@@ -11,6 +11,7 @@ import { CardElev, CardElevBody, CardElevHeader, CardElevTitle, CardElevDescript
 import { CaseStatusBadge, StageStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { stageLabels, stageBlurbs, progressPercent, formatDateTime } from "@/lib/utils";
+import { requiredStagesForCase } from "@/lib/stages";
 import {
   ArrowRight, ShieldAlert, Fingerprint, MapPin, GraduationCap, Briefcase,
   FileSearch, Medal, Camera, Video, Inbox, CheckCircle2, Clock, Sparkles, ClipboardCheck,
@@ -83,8 +84,11 @@ export default async function CandidateDashboard({
   }
 
   const kase = cand.case;
-  // Only render stages that have an active route (REFERENCE is retired).
-  const stages = kase.stages.filter((s) => stageRoute[s.type]);
+  // Only render stages in the case's required set (stray rows — retired
+  // REFERENCE, or leftovers from a candidate-type change — would distort the
+  // progress math) that also have an active route.
+  const required = requiredStagesForCase(kase, kase.stages);
+  const stages = kase.stages.filter((s) => required.includes(s.type) && stageRoute[s.type]);
   const approved = stages.filter((s) => s.status === "APPROVED").length;
   const pending = stages.filter((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW").length;
   const corrections = stages.filter((s) => s.status === "NEEDS_CORRECTION");

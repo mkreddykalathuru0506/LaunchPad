@@ -19,7 +19,7 @@ import {
   StageType,
   type Prisma,
 } from "@prisma/client";
-import { stagesForCandidateType } from "@/lib/stages";
+import { RETIRED_STAGE_TYPES, stagesForCandidateType } from "@/lib/stages";
 import { isUniqueViolation, withUniqueCaseReference } from "@/lib/case-reference";
 import { db } from "@/lib/db";
 import { notifyBgvTeam } from "@/server/notify";
@@ -95,7 +95,17 @@ function validatePayload(
         return { ok: false, error: `requiredStages contains invalid value: ${String(s)}` };
       }
     }
-    requiredStages = o.requiredStages as StageType[];
+    // Drop retired types (REFERENCE) rather than rejecting the handoff: a
+    // required stage with no submittable UI permanently blocks the case from
+    // CLEARED, and failing the whole webhook would block the candidate instead.
+    const active = (o.requiredStages as StageType[]).filter((s) => !RETIRED_STAGE_TYPES.has(s));
+    if (active.length < o.requiredStages.length) {
+      logger.warn("portal_webhook.retired_stages_dropped", {
+        dropped: (o.requiredStages as StageType[]).filter((s) => RETIRED_STAGE_TYPES.has(s)),
+      });
+    }
+    // An all-retired list falls back to the candidate-type derivation below.
+    requiredStages = active.length > 0 ? active : null;
   }
 
   // Optional fields — accept string | null | undefined; normalize.

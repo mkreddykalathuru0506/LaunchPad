@@ -13,7 +13,7 @@ import {
   emailProfileSubmittedForBgv,
 } from "@/server/emails";
 import { notifyStageSubmitted, notifyBgvTeam } from "@/server/notify";
-import { stagesForCandidateType } from "@/lib/stages";
+import { computeCaseStatus, requiredStagesForCase } from "@/lib/stages";
 import { stageLabels } from "@/lib/utils";
 import { StageStatus, StageType, AddressType, DocumentKind, ConsentKind } from "@prisma/client";
 
@@ -80,21 +80,38 @@ async function storeFile(file: File, opts: { kind: DocumentKind; caseId: string;
 }
 
 async function transitionCaseStatus(caseId: string) {
-  const stages = await db.stage.findMany({ where: { caseId } });
-  const required = stages.length;
-  const approved = stages.filter((s) => s.status === "APPROVED").length;
-  const anySubmitted = stages.some((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW");
-  const anyCorrection = stages.some((s) => s.status === "NEEDS_CORRECTION");
-  const anyRejected = stages.some((s) => s.status === "REJECTED");
-
-  let status: "DRAFT" | "IN_PROGRESS" | "AWAITING_REVIEW" | "NEEDS_CORRECTION" | "CLEARED" | "REJECTED";
-  if (approved === required && required > 0) status = "CLEARED";
-  else if (anyRejected) status = "REJECTED";
-  else if (anyCorrection) status = "NEEDS_CORRECTION";
-  else if (anySubmitted) status = "AWAITING_REVIEW";
-  else status = "IN_PROGRESS";
-
+  const kase = await db.case.findUnique({
+    where: { id: caseId },
+    select: { requiredStages: true, stages: { select: { type: true, status: true } } },
+  });
+  if (!kase) return;
+  // Shared required-set status math — see computeCaseStatus for why stray
+  // stage rows (retired REFERENCE, candidate-type leftovers) are excluded.
+  const status = computeCaseStatus(kase, kase.stages);
   await db.case.update({ where: { id: caseId }, data: { status } });
+}
+
+/**
+ * The required stage set for a case the candidate is acting on. Short-circuits
+ * on the stored `requiredStages`; only legacy cases (provisioned before the
+ * column existed) pay for the stage-row fallback query.
+ */
+async function requiredStageSetFor(kase: { id: string; requiredStages: StageType[] }): Promise<StageType[]> {
+  const configured = requiredStagesForCase(kase);
+  if (configured.length > 0) return configured;
+  const rows = await db.stage.findMany({ where: { caseId: kase.id }, select: { type: true } });
+  return requiredStagesForCase(kase, rows);
+}
+
+// Candidates can POST any stage action/draft directly — never trust the
+// requested stage to be part of their case. Without this, a forged request
+// upserts a row for an unprovisioned stage (e.g. VETERAN, or the retired
+// REFERENCE), distorting the dashboard and the desk's "all submitted" signal.
+async function requireStageInCase(kase: { id: string; requiredStages: StageType[] }, type: StageType) {
+  const required = await requiredStageSetFor(kase);
+  if (!required.includes(type)) {
+    throw new Error("This stage isn't part of your verification case.");
+  }
 }
 
 // Notify the BGV desk (in-app bell) that a stage was submitted. Loads the
@@ -197,11 +214,19 @@ async function persistDraftFromForm(caseId: string, type: StageType, formData: F
   await upsertStage(caseId, type, "IN_PROGRESS", payload);
 }
 
+// The client-supplied __stage field is untrusted: parse it against the enum
+// (never cast blindly) before it reaches a Prisma query.
+function parseStageType(raw: string): StageType | null {
+  const upper = raw.toUpperCase();
+  return (Object.values(StageType) as string[]).includes(upper) ? (upper as StageType) : null;
+}
+
 async function saveStageDraftImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
-  const type = (formData.get("__stage")?.toString() ?? "").toUpperCase() as StageType;
+  const type = parseStageType(formData.get("__stage")?.toString() ?? "");
   if (!type) throw new Error("Missing stage");
+  await requireStageInCase(kase, type);
   await guardDraftable(kase.id, type);
 
   await persistDraftFromForm(kase.id, type, formData);
@@ -211,8 +236,10 @@ async function saveStageDraftImpl(formData: FormData) {
 // Public draft action — redirects back to the stage with ?saved=1 (or ?err= on
 // failure). Errors/redirects with a NEXT_* digest pass through untouched.
 export async function saveStageDraft(formData: FormData): Promise<void> {
-  const type = (formData.get("__stage")?.toString() ?? "").toLowerCase();
-  const path = `/me/stage/${type}`;
+  const type = parseStageType(formData.get("__stage")?.toString() ?? "");
+  // No recognizable stage → no stage route to land on; fall back to the
+  // dashboard instead of redirecting into the non-route /me/stage/ (404).
+  const path = type ? `/me/stage/${type.toLowerCase()}` : "/me";
   try {
     await saveStageDraftImpl(formData);
   } catch (e) {
@@ -241,6 +268,7 @@ const identitySchema = z.object({
 async function submitIdentityStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { cand, kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "IDENTITY");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "IDENTITY", formData);
 
@@ -298,6 +326,7 @@ const addressSchema = z.object({
 async function submitAddressStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "ADDRESS");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "ADDRESS", formData);
 
@@ -395,6 +424,7 @@ const REQUIRED_EDU_LEVELS = ["SSC", "Intermediate", "Bachelor"] as const;
 async function submitEducationStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "EDUCATION");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "EDUCATION", formData);
 
@@ -528,6 +558,7 @@ const employmentItem = z.object({
 async function submitEmploymentStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "EMPLOYMENT");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "EMPLOYMENT", formData);
 
@@ -608,6 +639,7 @@ const criminalSchema = z.object({
 async function submitCriminalStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "CRIMINAL");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "CRIMINAL", formData);
 
@@ -652,6 +684,7 @@ const veteranSchema = z.object({
 async function submitVeteranStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "VETERAN");
   // Persist what was typed FIRST so a validation failure re-fills the form.
   await persistDraftFromForm(kase.id, "VETERAN", formData);
 
@@ -695,6 +728,7 @@ async function submitVeteranStageImpl(formData: FormData) {
 async function submitPhotoStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "PHOTO");
   const selfie = formData.get("selfie") as File | null;
   // Persist the selected file FIRST so a failed submit re-fills the form. This
   // also stores the selfie document, so on success we reuse it rather than
@@ -715,6 +749,7 @@ async function submitPhotoStageImpl(formData: FormData) {
 async function submitVideoStageImpl(formData: FormData) {
   const s = await requireRole("CANDIDATE");
   const { kase } = await getCandidateCase(s.user.id);
+  await requireStageInCase(kase, "VIDEO");
   const rec = formData.get("recording") as File | null;
   const phrase = formData.get("phrase")?.toString() ?? "";
   // Persist the recording + phrase FIRST so a failed submit re-fills the form.
@@ -741,12 +776,14 @@ async function submitProfileForBgvImpl() {
   const s = await requireRole("CANDIDATE");
   const { cand, kase } = await getCandidateCase(s.user.id);
 
-  // Required stages for this candidate — same source provisioning uses.
-  const required = stagesForCandidateType(cand.candidateType, cand.isVeteran);
+  // Required stages = what was actually provisioned on the case, NOT a
+  // re-derivation from candidateType (which disagrees for portal cases with a
+  // custom requiredStages set and would gate submit on stages that don't exist).
   const stages = await db.stage.findMany({
     where: { caseId: kase.id },
     select: { type: true, status: true },
   });
+  const required = requiredStagesForCase(kase, stages);
   const statusByType = new Map(stages.map((st) => [st.type, st.status]));
   const isDone = (st?: StageStatus) =>
     st === "SUBMITTED" || st === "UNDER_REVIEW" || st === "APPROVED";
