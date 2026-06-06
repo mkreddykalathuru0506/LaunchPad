@@ -65,11 +65,17 @@ export default async function VerifierQueue() {
       ) : (
         <CardElev>
           <CardElevBody className="p-0">
-            <div className="border-b px-5 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {cases.length} case{cases.length === 1 ? "" : "s"} to review
+            {/* Dossier-ledger header */}
+            <div className="flex items-center justify-between border-b border-dashed px-5 py-3">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                Open case files
+              </span>
+              <span className="rounded-md bg-brand/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-brand">
+                {String(cases.length).padStart(2, "0")}
+              </span>
             </div>
-            <ul className="divide-y">
-              {cases.map((c) => {
+            <ul className="divide-y divide-border/70">
+              {cases.map((c, idx) => {
                 const pending = c.stages.find(
                   (s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW" || s.status === "NEEDS_CORRECTION"
                 );
@@ -78,18 +84,21 @@ export default async function VerifierQueue() {
                   <li key={c.id} className="group">
                     <Link
                       href={`/work/case/${c.id}`}
-                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
+                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-accent/60"
                     >
+                      <span aria-hidden className="hidden w-7 font-mono text-[10px] text-muted-foreground/60 sm:block">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
                       <Avatar name={candName} size="md" />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="font-semibold">{candName}</span>
-                          <span className="tabnum font-mono text-xs text-brand">{c.reference}</span>
+                          <span className="font-display font-semibold">{candName}</span>
+                          <span className="tabnum font-mono text-xs tracking-wider text-brand">{c.reference}</span>
                           <CaseStatusBadge status={c.status} />
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                           <span>{c.candidate.positionTitle ?? c.candidate.candidateType}</span>
-                          <span aria-hidden>·</span>
+                          <span aria-hidden className="hidden flex-1 border-b border-dotted border-border sm:block" />
                           {pending ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="font-medium text-foreground">{stageLabels[pending.type]}</span>
@@ -99,7 +108,7 @@ export default async function VerifierQueue() {
                             <span>All stages reviewed</span>
                           )}
                           <span aria-hidden>·</span>
-                          <span>Updated {formatDateTime(c.updatedAt)}</span>
+                          <span className="font-mono text-[10px] tracking-wide">{formatDateTime(c.updatedAt)}</span>
                         </div>
                       </div>
                       <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />

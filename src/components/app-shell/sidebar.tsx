@@ -63,6 +63,7 @@ function SidebarContent({
             "radial-gradient(40% 30% at 10% 0%, hsl(201 96% 32% / 0.30), transparent 60%), radial-gradient(40% 40% at 100% 100%, hsl(199 89% 48% / 0.18), transparent 60%)",
         }}
       />
+      <div aria-hidden className="dot-grid-light pointer-events-none absolute inset-0 opacity-30" />
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <Link
@@ -80,7 +81,7 @@ function SidebarContent({
         {groups.map((group, gi) => (
           <div key={gi} className={cn(gi > 0 && "mt-6")}>
             {group.section && (
-              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted">
+              <div className="px-3 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-sidebar-muted">
                 {group.section}
               </div>
             )}
@@ -174,9 +175,9 @@ export function Sidebar({ items, footer }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop */}
+      {/* Desktop — floating navy rail */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border md:block"
+        className="fixed bottom-3 left-3 top-3 z-30 hidden w-64 overflow-hidden rounded-2xl border border-sidebar-border/70 shadow-2xl shadow-primary/20 md:block"
         aria-label="Primary"
       >
         <SidebarContent items={items} footer={footer} />

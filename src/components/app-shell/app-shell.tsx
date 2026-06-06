@@ -19,7 +19,11 @@ export function AppShell({
 }: AppShellProps) {
   return (
     <AppShellProvider>
-      <div className="min-h-screen bg-muted/20">
+      <div className="relative min-h-screen bg-background">
+        {/* Atmospheric canvas: engineering dot grid + sky spotlight. */}
+        <div aria-hidden className="dot-grid pointer-events-none fixed inset-0 opacity-50 [mask-image:radial-gradient(75%_60%_at_50%_0%,#000_20%,transparent_80%)]" />
+        <div aria-hidden className="spotlight-top pointer-events-none fixed inset-x-0 top-0 h-[420px]" />
+
         {/* Keyboard users jump past the sidebar/topbar chrome (WCAG 2.4.1). */}
         <a
           href="#main-content"
@@ -28,7 +32,8 @@ export function AppShell({
           Skip to content
         </a>
         <Sidebar items={nav} footer={sidebarFooter} />
-        <div className="flex min-h-screen flex-col md:pl-64">
+        {/* 256px floating rail + 12px inset on either side. */}
+        <div className="relative flex min-h-screen flex-col md:pl-[17.5rem]">
           <Topbar session={session} />
           <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
             <div className="container py-8">{children}</div>

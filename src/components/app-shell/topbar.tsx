@@ -482,7 +482,7 @@ function UserMenu({ session }: { session: AppSession }) {
 export function Topbar({ session }: { session: AppSession }) {
   const { setMobileOpen } = useAppShell();
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-20 border-b border-border/60 bg-background/60 backdrop-blur-xl">
       <div className="flex h-14 items-center gap-3 px-4 md:px-6">
         <Button
           type="button"

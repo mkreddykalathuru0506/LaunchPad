@@ -29,7 +29,7 @@ export function SectionHeading({
     >
       <div className="min-w-0">
         {eyebrow && (
-          <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="mb-2 inline-flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-brand">
             <span
               aria-hidden="true"
               className="inline-block h-1 w-1 rounded-full bg-brand"
@@ -39,8 +39,8 @@ export function SectionHeading({
         )}
         <Heading
           className={cn(
-            "truncate text-2xl font-semibold tracking-tight text-foreground",
-            as === "h1" && "text-3xl"
+            "truncate font-display text-2xl font-bold tracking-tight text-foreground",
+            as === "h1" && "text-3xl sm:text-4xl"
           )}
         >
           {title}

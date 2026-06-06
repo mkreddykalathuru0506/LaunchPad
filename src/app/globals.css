@@ -41,7 +41,7 @@
     --sidebar-border: 215 25% 23%;
     --sidebar-primary: 199 89% 57%;     /* sky-400 — active/highlight on navy */
 
-    --radius: 0.75rem;
+    --radius: 1rem; /* softer, contemporary corner language */
   }
 
   /* Dark: desaturated navy surfaces, light primary actions, sky-400 brand —
@@ -151,6 +151,58 @@
     background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted)/.5) 50%, hsl(var(--muted)) 100%);
     background-size: 200% 100%;
     animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  /* ── Clearance-dossier language ──────────────────────────────────────── */
+
+  /* Theme-aware engineering dot grid for page canvases. */
+  .dot-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  /* Dot grid for permanently-navy panels (hero, sidebar, CTA bands). */
+  .dot-grid-light {
+    background-image: radial-gradient(hsl(210 40% 98% / 0.10) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  /* Sky spotlight bleeding from the top of a section. */
+  .spotlight-top {
+    background: radial-gradient(900px 420px at 50% -10%, hsl(var(--brand) / 0.16), transparent 70%);
+  }
+  /* Fixed deep-navy panel surface — identical in both themes (like the sidebar). */
+  .panel-navy {
+    background:
+      radial-gradient(50% 70% at 12% 0%, hsl(201 96% 32% / 0.35), transparent 60%),
+      radial-gradient(45% 60% at 95% 100%, hsl(199 89% 48% / 0.18), transparent 60%),
+      linear-gradient(180deg, hsl(222 47% 13%), hsl(222 47% 9%));
+    color: hsl(var(--sidebar-fg));
+  }
+  /* Machine-readable-zone strip (passport bottom line). Decorative. */
+  .mrz {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Entry-stamp framing: double border via outline offset. */
+  .stamp-frame {
+    border-width: 2px;
+    outline-width: 1px;
+    outline-style: solid;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* Gradient hairline divider. */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  }
+  .hairline-sky {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--brand) / 0.5), transparent);
   }
 }
 
