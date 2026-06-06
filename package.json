@@ -73,5 +73,10 @@
   },
   "engines": {
     "node": ">=18.17"
+  },
+  "overrides": {
+    "@auth/core": {
+      "nodemailer": "$nodemailer"
+    }
   }
 }
