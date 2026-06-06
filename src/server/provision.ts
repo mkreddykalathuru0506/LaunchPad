@@ -3,6 +3,7 @@ import { hash } from "argon2";
 import { randomToken } from "@/lib/crypto";
 import { Role, CandidateType } from "@prisma/client";
 import { stagesForCandidateType } from "@/lib/stages";
+import { withUniqueCaseReference } from "@/lib/case-reference";
 import { notifyBgvTeam } from "@/server/notify";
 
 export type ProvisionCandidateInput = {
@@ -71,20 +72,22 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
   // Required BGV stages by candidate type — interns drop EMPLOYMENT; veteran is additive.
   const stages = stagesForCandidateType(input.candidateType, input.requireVeteran === true);
 
-  const count = await db.case.count();
-  const reference = `LP-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
-
-  const kase = await db.case.upsert({
-    where: { candidateId: candidate.id },
-    update: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
-    create: {
-      reference,
-      candidateId: candidate.id,
-      requiredStages: stages,
-      assignedVerifierId: input.assignedVerifierId ?? null,
-      managedById: input.managedById,
-    },
-  });
+  // Reference allocation + collision retry live in withUniqueCaseReference —
+  // the same path the portal webhook uses (count()+1 collided after any case
+  // deletion and 500'd the manager/admin create flows).
+  const kase = await withUniqueCaseReference((reference) =>
+    db.case.upsert({
+      where: { candidateId: candidate.id },
+      update: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
+      create: {
+        reference,
+        candidateId: candidate.id,
+        requiredStages: stages,
+        assignedVerifierId: input.assignedVerifierId ?? null,
+        managedById: input.managedById,
+      },
+    }),
+  );
 
   for (const t of stages) {
     await db.stage.upsert({
