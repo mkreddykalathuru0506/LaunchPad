@@ -1,5 +1,5 @@
 import { PrismaClient, Role, CandidateType, CaseStatus, StageType, StageStatus, DocumentKind, AddressType } from "@prisma/client";
-import { hash } from "argon2";
+import { hash, verify } from "argon2";
 import { stagesForCandidateType } from "../src/lib/stages";
 
 const prisma = new PrismaClient();
@@ -35,26 +35,50 @@ async function main() {
 
   // ── Dedicated BGV operator login (permanent — re-asserted on every deploy) ──
   // Same mailbox that receives the "profile submitted for BGV" notifications, so
-  // the person reading that inbox signs in with the same address. The password
-  // comes ONLY from BGV_ADMIN_PASSWORD (a deploy secret) — never a hardcoded
-  // default, so we don't ship a known admin credential. Skipped when unset.
-  // The password is create-only (won't reset one that's been changed), but
-  // role + active ARE healed on every run — "permanent" must survive an
-  // accidental demotion/deactivation in the admin UI, not just first creation.
-  const bgvPasswordPlain = process.env.BGV_ADMIN_PASSWORD;
-  if (bgvPasswordPlain && bgvPasswordPlain.trim().length > 0) {
-    const bgv = await prisma.user.upsert({
-      where: { email: "bgv@elvixit.com" },
-      update: { role: Role.ADMIN, active: true },
-      create: {
-        email: "bgv@elvixit.com",
-        name: "BGV Team",
-        role: Role.ADMIN,
-        passwordHash: await hash(bgvPasswordPlain),
-        emailVerified: new Date(),
-      },
-    });
-    console.log(`BGV admin user: ${bgv.email}`);
+  // the person reading that inbox signs in with the same address.
+  //
+  // BGV_ADMIN_PASSWORD (a deploy secret) is the SOURCE OF TRUTH for this
+  // account: role, active, AND the password hash are healed on every run.
+  // Create-only password semantics bit us in prod — when ADMIN_EMAIL also
+  // points at bgv@elvixit.com, the first-run admin block above creates the row
+  // first (with ADMIN_PASSWORD), and a create-only upsert here silently never
+  // applies the real secret. Healing also covers secret rotation: rotate the
+  // GitHub secret, redeploy, done. (Changing this account's password in the
+  // admin UI is therefore intentionally overwritten by the next deploy.)
+  // Trimmed to survive a trailing newline pasted into the secret. Skipped when unset.
+  const bgvPasswordPlain = process.env.BGV_ADMIN_PASSWORD?.trim();
+  if (bgvPasswordPlain) {
+    const bgvEmail = "bgv@elvixit.com";
+    const existingBgv = await prisma.user.findUnique({ where: { email: bgvEmail } });
+    if (!existingBgv) {
+      await prisma.user.create({
+        data: {
+          email: bgvEmail,
+          name: "BGV Team",
+          role: Role.ADMIN,
+          passwordHash: await hash(bgvPasswordPlain),
+          emailVerified: new Date(),
+        },
+      });
+      console.log(`BGV admin user: ${bgvEmail} (created)`);
+    } else {
+      const passwordCurrent = existingBgv.passwordHash
+        ? await verify(existingBgv.passwordHash, bgvPasswordPlain).catch(() => false)
+        : false;
+      await prisma.user.update({
+        where: { email: bgvEmail },
+        data: {
+          role: Role.ADMIN,
+          active: true,
+          ...(passwordCurrent
+            ? {}
+            : { passwordHash: await hash(bgvPasswordPlain), mustChangePassword: false }),
+        },
+      });
+      console.log(
+        `BGV admin user: ${bgvEmail} (${passwordCurrent ? "password already current" : "password re-asserted from BGV_ADMIN_PASSWORD"})`,
+      );
+    }
   } else {
     console.log("BGV_ADMIN_PASSWORD not set — skipping bgv@elvixit.com admin seed.");
   }
