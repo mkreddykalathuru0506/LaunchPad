@@ -123,8 +123,12 @@ function SidebarContent({
                           tone={active ? "info" : "neutral"}
                           className={cn(
                             "ml-auto h-5 px-1.5 text-[10px] font-semibold",
-                            !active &&
-                              "bg-sidebar-accent text-sidebar-foreground/70 ring-sidebar-border"
+                            // Sidebar-specific fills: the info tone's bg-accent is
+                            // near-identical to the active row in dark, and neutral's
+                            // bg-muted is wrong on permanent navy.
+                            active
+                              ? "bg-sidebar-primary/15 text-sidebar-primary ring-sidebar-primary/30"
+                              : "bg-sidebar-accent text-sidebar-foreground/70 ring-sidebar-border"
                           )}
                         >
                           {item.badge}

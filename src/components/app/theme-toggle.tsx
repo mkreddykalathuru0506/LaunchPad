@@ -21,7 +21,10 @@ export function ThemeToggle({ className }: { className?: string }) {
       variant="ghost"
       size="icon"
       className={className}
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+      // Static name — pre-mount the resolved theme is unknown, so a dynamic
+      // label would briefly claim the wrong direction.
+      aria-label="Toggle theme"
+      title={mounted ? (isDark ? "Switch to light theme" : "Switch to dark theme") : undefined}
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       {/* Both icons stay in the DOM; CSS picks one — no hydration flicker. */}

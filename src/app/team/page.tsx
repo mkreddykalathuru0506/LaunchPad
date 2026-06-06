@@ -83,7 +83,7 @@ export default async function TeamOverview() {
                       </div>
                       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <div
-                          className={`h-full rounded-full ${isOver ? "bg-warning" : "bg-primary"}`}
+                          className={`h-full rounded-full ${isOver ? "bg-warning" : "bg-brand"}`}
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>

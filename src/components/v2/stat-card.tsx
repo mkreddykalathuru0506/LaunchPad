@@ -16,8 +16,10 @@ export interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const accentGradient: Record<Accent, string> = {
+  // "primary" accent renders in BRAND sky — the primary token inverts to
+  // near-white in dark mode and would turn the rail/chip colorless.
   primary:
-    "bg-gradient-to-b from-primary/80 via-primary to-primary/70",
+    "bg-gradient-to-b from-brand/80 via-brand to-brand/70",
   success:
     "bg-gradient-to-b from-success/70 via-success to-success/70",
   warning:
@@ -29,7 +31,7 @@ const accentGradient: Record<Accent, string> = {
 
 const accentIconBg: Record<Accent, string> = {
   primary:
-    "bg-primary/10 text-primary ring-1 ring-inset ring-primary/20",
+    "bg-brand/10 text-brand ring-1 ring-inset ring-brand/20",
   success:
     "bg-success/10 text-success ring-1 ring-inset ring-success/25",
   warning:

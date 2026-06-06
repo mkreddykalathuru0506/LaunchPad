@@ -11,8 +11,10 @@ const sizeMap: Record<AvatarSize, string> = {
 };
 
 const toneMap: Record<AvatarTone, string> = {
+  // brand sky, not the primary token (which inverts to near-white in dark and
+  // would strip the colored identity from ~1/5 of all avatars).
   primary:
-    "bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-1 ring-inset ring-primary/20",
+    "bg-gradient-to-br from-brand/20 to-brand/10 text-brand ring-1 ring-inset ring-brand/25",
   neutral:
     "bg-gradient-to-br from-muted to-muted/60 text-muted-foreground ring-1 ring-inset ring-border",
   success:

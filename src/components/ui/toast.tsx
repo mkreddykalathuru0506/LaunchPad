@@ -41,20 +41,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={{ push }}>
       {children}
-      {/* Polite live region: announced by SR without stealing focus. Not a
-          focusable container, so keyboard focus stays where the user left it. */}
+      {/* The CONTAINER is the persistent polite live region (exists from mount,
+          so SRs reliably announce nodes added into it); error toasts carry
+          role="alert" individually, which is the spec'd way to interrupt.
+          Never steals focus. */}
       <div
         className="fixed right-4 top-4 z-[100] flex w-80 flex-col gap-2"
-        role="region"
-        aria-label="Notifications"
+        aria-live="polite"
       >
         {toasts.map((t) => {
           const tone: ToastTone = t.tone ?? "info";
           return (
             <div
               key={t.id}
-              role="status"
-              aria-live="polite"
+              role={tone === "danger" ? "alert" : undefined}
               className={cn(
                 "flex items-start gap-2.5 rounded-lg border bg-card text-card-foreground p-3 shadow-lg ring-1 ring-border/50 animate-slide-up",
                 toneBorder[tone]

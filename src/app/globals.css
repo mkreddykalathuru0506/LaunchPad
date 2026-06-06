@@ -62,8 +62,8 @@
     --accent-foreground: 199 89% 70%;
     --brand: 199 89% 57%;               /* sky-400 */
     --brand-foreground: 222 47% 11%;
-    --destructive: 0 72% 57%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 65%;           /* lighter red — AA as text on dark tints */
+    --destructive-foreground: 229 84% 5%;
     --success: 142 60% 48%;
     --success-foreground: 229 84% 5%;
     --warning: 38 92% 55%;

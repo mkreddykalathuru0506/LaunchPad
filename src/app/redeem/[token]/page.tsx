@@ -16,7 +16,7 @@ export default async function Redeem({ params }: { params: { token: string } }) 
           <Logo />
           <div
             aria-hidden
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-warning/10 text-warning ring-1 ring-inset ring-warning/20"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-warning/10 text-warning-foreground ring-1 ring-inset ring-warning/20 dark:text-warning"
           >
             <Link2Off className="h-7 w-7" />
           </div>
