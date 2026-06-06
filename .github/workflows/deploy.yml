@@ -9,6 +9,17 @@ name: Deploy to VPS
 # Launch Pad lives behind ElvixIT's shared Caddy, so LP_COMPOSE_FILES forces
 # the shared-caddy overlay — otherwise deploy.sh would try to start its own
 # Caddy on :80/:443 and fight ElvixIT for the ports.
+#
+# 2026-06-06: deploy runs on a self-hosted runner ON the VPS (label
+# launchpad-vps, /opt/actions-runner-launchpad) instead of SSHing in from a
+# GitHub-hosted runner. Hostinger's network-level firewall began dropping
+# inbound SSH from GitHub's runner IPs (deploys timed out while the box was
+# healthy). The runner connects OUTBOUND to GitHub over 443, so deploys no
+# longer depend on any inbound port; VPS_SSH_KEY is no longer used.
+#
+# /tmp/vps-deploy.lock serializes builds across ALL THREE repos' deploys
+# (portal / elvixit / launchpad share the 2-CPU box and a concurrent build
+# storm takes the box down; GitHub concurrency groups cannot span repos).
 
 on:
   push:
@@ -22,42 +33,29 @@ concurrency:
 jobs:
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: [self-hosted, launchpad-vps]
+    timeout-minutes: 90
     steps:
-      - name: Checkout (for sha reference only)
-        uses: actions/checkout@v4
-
-      - name: SSH deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy
         env:
           GIT_SHA: ${{ github.sha }}
           # Optional repo secret: seeds a permanent bgv@elvixit.com ADMIN login.
           BGV_ADMIN_PASSWORD: ${{ secrets.BGV_ADMIN_PASSWORD }}
-        with:
-          host: 187.77.1.245
-          port: 22
-          username: root
-          # Plain PEM private key — secret was re-added in raw form (no
-          # base64 wrapping). If you rotate it, paste the full
-          # -----BEGIN OPENSSH PRIVATE KEY----- … -----END … ----- block
-          # including trailing newline.
-          key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GIT_SHA,BGV_ADMIN_PASSWORD
-          command_timeout: 20m
-          script_stop: true
-          script: |
-            set -euo pipefail
-            DEPLOY_DIR="/opt/launchpad"
-            # Launch Pad sits behind the ElvixIT shared Caddy on this VPS,
-            # so we always combine the base compose with the shared-caddy
-            # overlay. scripts/deploy.sh reads this env var.
-            export LP_COMPOSE_FILES="docker-compose.yml:docker-compose.shared-caddy.yml"
-            echo "── deploying $GIT_SHA to $DEPLOY_DIR (compose: $LP_COMPOSE_FILES) ──"
-            cd "$DEPLOY_DIR"
-            ./scripts/deploy.sh
+        run: |
+          set -euo pipefail
+          # Cross-repo build lock — wait up to 1h for any other repo's deploy.
+          exec 9>/tmp/vps-deploy.lock
+          flock -w 3600 9
+          DEPLOY_DIR="/opt/launchpad"
+          # Launch Pad sits behind the ElvixIT shared Caddy on this VPS,
+          # so we always combine the base compose with the shared-caddy
+          # overlay. scripts/deploy.sh reads this env var.
+          export LP_COMPOSE_FILES="docker-compose.yml:docker-compose.shared-caddy.yml"
+          echo "── deploying $GIT_SHA to $DEPLOY_DIR (compose: $LP_COMPOSE_FILES) ──"
+          cd "$DEPLOY_DIR"
+          ./scripts/deploy.sh
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "::error::Deploy failed. SSH into the VPS and run docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml logs -f web for details."
+          echo "::error::Deploy failed. Run: docker compose -f docker-compose.yml -f docker-compose.shared-caddy.yml logs -f web (in /opt/launchpad) for details."
