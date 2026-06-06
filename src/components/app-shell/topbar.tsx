@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { AppSession } from "@/lib/auth";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 import { useAppShell } from "./app-shell-context";
 
 type SearchHit = {
@@ -497,6 +498,7 @@ export function Topbar({ session }: { session: AppSession }) {
         <SearchBox />
 
         <div className="ml-auto flex items-center gap-1.5">
+          <ThemeToggle className="h-9 w-9" />
           <NotificationsBell />
           <span className="mx-1 hidden h-6 w-px bg-border sm:block" />
           <UserMenu session={session} />
