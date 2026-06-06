@@ -6,13 +6,13 @@ import { Field, FieldGrid, FileField } from "@/components/stage/fields";
 import { Input } from "@/components/ui/input";
 import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitAddressStage } from "@/server/actions/stage";
-import { draftFields, draftFiles } from "@/lib/stage-draft";
+import { draftFields, draftFiles, isoDateValue } from "@/lib/stage-draft";
 
 function AddressBlock({
   kind, prefill, draft, savedProof,
 }: {
   kind: "CURRENT" | "PERMANENT";
-  prefill?: { line1?: string; line2?: string | null; city?: string; state?: string; postalCode?: string; country?: string } | null;
+  prefill?: { line1?: string; line2?: string | null; city?: string; state?: string; postalCode?: string; country?: string; fromDate?: Date | null } | null;
   draft: Record<string, string>;
   savedProof?: { filename: string };
 }) {
@@ -40,14 +40,14 @@ function AddressBlock({
           <Input id={`${kind}_country`} name={`${kind}_country`} defaultValue={dv("country", prefill?.country)} required />
         </Field>
         <Field label="Residing since" htmlFor={`${kind}_fromDate`}>
-          <Input id={`${kind}_fromDate`} name={`${kind}_fromDate`} type="date" defaultValue={dv("fromDate")} />
+          <Input id={`${kind}_fromDate`} name={`${kind}_fromDate`} type="date" defaultValue={dv("fromDate", isoDateValue(prefill?.fromDate))} />
         </Field>
       </FieldGrid>
       <div className="mt-4">
         <FileField name={`${kind}_proof`} label="Address proof" accept="image/*,.pdf"
           hint="Utility bill, lease, or bank statement (less than 90 days old)." />
         {savedProof && (
-          <p className="mt-2 text-sm text-muted-foreground">Saved in your draft: <span className="font-medium">{savedProof.filename}</span>.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Saved: <span className="font-medium">{savedProof.filename}</span>. Re-select only if you want to replace it.</p>
         )}
       </div>
     </div>
@@ -65,12 +65,18 @@ export default async function AddressStagePage({ searchParams }: { searchParams?
     : null;
   const draft = draftFields(stage);
   const draftDocs = draftFiles(stage);
+  // The "Saved" hint also covers a previously SUBMITTED proof (submit keeps it
+  // unless replaced), not just an in-flight draft upload.
+  const docName = new Map((cand?.case?.documents ?? []).map((d) => [d.id, d.filename]));
+  const savedProofFor = (kind: "CURRENT" | "PERMANENT", proofDocId?: string | null) =>
+    draftDocs[`${kind}_proof`] ??
+    (proofDocId ? { filename: docName.get(proofDocId) ?? "uploaded document" } : undefined);
 
   return (
     <StageShell type="ADDRESS" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
       <form action={submitAddressStage} className="space-y-6">
-        <AddressBlock kind="CURRENT" prefill={current} draft={draft} savedProof={draftDocs.CURRENT_proof} />
-        <AddressBlock kind="PERMANENT" prefill={permanent} draft={draft} savedProof={draftDocs.PERMANENT_proof} />
+        <AddressBlock kind="CURRENT" prefill={current} draft={draft} savedProof={savedProofFor("CURRENT", current?.proofDocId)} />
+        <AddressBlock kind="PERMANENT" prefill={permanent} draft={draft} savedProof={savedProofFor("PERMANENT", permanent?.proofDocId)} />
         <StageFormFooter stageType="ADDRESS" submitLabel="Submit address stage" />
       </form>
     </StageShell>

@@ -6,7 +6,7 @@ import { Field, FieldGrid, FileField } from "@/components/stage/fields";
 import { Input } from "@/components/ui/input";
 import { StageFormFooter } from "@/components/stage/stage-footer";
 import { submitVeteranStage } from "@/server/actions/stage";
-import { draftFields } from "@/lib/stage-draft";
+import { draftFields, isoDateValue } from "@/lib/stage-draft";
 import { Empty } from "@/components/ui/empty";
 
 export default async function VeteranStagePage({ searchParams }: { searchParams?: { err?: string; saved?: string } }) {
@@ -19,7 +19,11 @@ export default async function VeteranStagePage({ searchParams }: { searchParams?
   if (!stage) {
     return <Empty title="Veteran stage not required" description="This stage is only required when you self-identify as a veteran." />;
   }
+  // In-flight draft wins; fall back to the submitted record (a successful
+  // submit clears __draft so corrections edit real data).
   const draft = draftFields(stage);
+  const rec = cand?.case?.veteranRecord;
+  const dv = (k: string, fallback?: string | null) => draft[k] ?? fallback ?? "";
 
   return (
     <StageShell type="VETERAN" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
@@ -30,19 +34,19 @@ export default async function VeteranStagePage({ searchParams }: { searchParams?
         </p>
         <FieldGrid>
           <Field label="Branch of service" htmlFor="branch" required>
-            <Input id="branch" name="branch" required defaultValue={draft.branch ?? ""} />
+            <Input id="branch" name="branch" required defaultValue={dv("branch", rec?.branch)} />
           </Field>
           <Field label="Service number" htmlFor="serviceNumber" hint="Stored encrypted at rest.">
             <Input id="serviceNumber" name="serviceNumber" />
           </Field>
           <Field label="Service start" htmlFor="serviceStart" required>
-            <Input id="serviceStart" name="serviceStart" type="date" required defaultValue={draft.serviceStart ?? ""} />
+            <Input id="serviceStart" name="serviceStart" type="date" required defaultValue={dv("serviceStart", isoDateValue(rec?.serviceStart))} />
           </Field>
           <Field label="Service end" htmlFor="serviceEnd">
-            <Input id="serviceEnd" name="serviceEnd" type="date" defaultValue={draft.serviceEnd ?? ""} />
+            <Input id="serviceEnd" name="serviceEnd" type="date" defaultValue={dv("serviceEnd", isoDateValue(rec?.serviceEnd))} />
           </Field>
           <Field label="Character of service" htmlFor="characterOfService" className="sm:col-span-2">
-            <select id="characterOfService" name="characterOfService" defaultValue={draft.characterOfService ?? ""}
+            <select id="characterOfService" name="characterOfService" defaultValue={dv("characterOfService", rec?.characterOfService)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring">
               <option value="">Select…</option>
               <option>Honorable</option>

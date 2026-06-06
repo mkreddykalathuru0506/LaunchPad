@@ -16,7 +16,11 @@ export default async function CriminalStagePage({ searchParams }: { searchParams
   const lastCorrection = stage
     ? await db.stageReview.findFirst({ where: { stageId: stage.id, decision: "NEEDS_CORRECTION" }, orderBy: { createdAt: "desc" }, include: { reviewer: true } })
     : null;
+  // In-flight draft wins; fall back to the submitted payload (a successful
+  // submit replaces the payload — and clears __draft — so corrections edit
+  // the real submitted values). The consent signature is always re-entered.
   const draft = draftFields(stage);
+  const payload = (stage?.payload ?? {}) as { jurisdictions?: string[]; declarations?: string | null };
 
   return (
     <StageShell type="CRIMINAL" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
@@ -33,10 +37,10 @@ export default async function CriminalStagePage({ searchParams }: { searchParams
 
         <FieldGrid>
           <Field label="Jurisdictions lived in (last 7 years)" htmlFor="jurisdictions" required hint="Comma-separated city, state, country.">
-            <Textarea id="jurisdictions" name="jurisdictions" required rows={3} defaultValue={draft.jurisdictions ?? ""} />
+            <Textarea id="jurisdictions" name="jurisdictions" required rows={3} defaultValue={draft.jurisdictions ?? payload.jurisdictions?.join(", ") ?? ""} />
           </Field>
           <Field label="Disclosures (anything you want us to know up front)" htmlFor="declarations">
-            <Textarea id="declarations" name="declarations" rows={3} defaultValue={draft.declarations ?? ""} />
+            <Textarea id="declarations" name="declarations" rows={3} defaultValue={draft.declarations ?? payload.declarations ?? ""} />
           </Field>
           <Field label="Sign with your full legal name" htmlFor="consentName" required>
             <Input id="consentName" name="consentName" required placeholder="Full legal name" defaultValue={draft.consentName ?? ""} />

@@ -130,13 +130,17 @@ function EducationBlock({
 }
 
 export function EducationForm({ initial }: { initial?: EducationDraft }) {
-  // Restore any optional levels (index >= the 3 required) that were saved in a draft.
-  const restoredExtras: LevelKey[] = [];
-  for (let i = REQUIRED_LEVELS.length; ; i++) {
-    const lvl = initial?.fields[`edu_${i}_level`];
-    if (!lvl) break;
-    restoredExtras.push(lvl as LevelKey);
-  }
+  // Restore any optional levels (index >= the 3 required) that were saved.
+  // Scan every saved level key rather than walking sequentially — a gap must
+  // not truncate the restore and drop later rows.
+  const restoredExtras: LevelKey[] = Object.entries(initial?.fields ?? {})
+    .flatMap(([k, v]) => {
+      const m = k.match(/^edu_(\d+)_level$/);
+      return m ? [[Number(m[1]), v] as const] : [];
+    })
+    .filter(([i]) => i >= REQUIRED_LEVELS.length)
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => v as LevelKey);
   const [extras, setExtras] = useState<LevelKey[]>(restoredExtras);
 
   const addExtra = (lvl: LevelKey) => setExtras((cur) => [...cur, lvl]);

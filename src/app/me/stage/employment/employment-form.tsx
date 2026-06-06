@@ -11,17 +11,27 @@ export type EmploymentDraft = {
   files: Record<string, { id: string; filename: string }>;
 };
 
-// Count the leading sequential rows saved in a draft (by their required marker).
-function rowCount(fields: Record<string, string> | undefined, marker: (i: number) => string): number {
+// Rows to render = highest saved row index + 1, scanned over EVERY saved key
+// (fields AND files). A sequential walk on one marker field truncated the
+// restore whenever an early row had that field blank, silently dropping the
+// later rows' saved data.
+function rowCount(initial?: EmploymentDraft): number {
   let n = 0;
-  while (fields && fields[marker(n)] !== undefined) n++;
+  const scan = (obj?: Record<string, unknown>) => {
+    for (const k of Object.keys(obj ?? {})) {
+      const m = k.match(/^emp_(\d+)_/);
+      if (m) n = Math.max(n, Number(m[1]) + 1);
+    }
+  };
+  scan(initial?.fields);
+  scan(initial?.files);
   return n;
 }
 
 export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
   const v = (i: number, k: string) => initial?.fields[`emp_${i}_${k}`] ?? "";
   const file = (i: number, k: string) => initial?.files[`emp_${i}_${k}`];
-  const count = rowCount(initial?.fields, (i) => `emp_${i}_employer`);
+  const count = rowCount(initial);
 
   return (
     <form action={submitEmploymentStage} className="space-y-6">
