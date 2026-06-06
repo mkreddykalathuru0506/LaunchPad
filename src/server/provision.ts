@@ -82,20 +82,25 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
 
   // Reference allocation + collision retry live in withUniqueCaseReference —
   // the same path the portal webhook uses (count()+1 collided after any case
-  // deletion and 500'd the manager/admin create flows).
-  const kase = await withUniqueCaseReference((reference) =>
-    db.case.upsert({
-      where: { candidateId: candidate.id },
-      update: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
-      create: {
-        reference,
-        candidateId: candidate.id,
-        requiredStages: stages,
-        assignedVerifierId: input.assignedVerifierId ?? null,
-        managedById: input.managedById,
-      },
-    }),
-  );
+  // deletion and 500'd the manager/admin create flows). Only the CREATE path
+  // allocates: re-provisioning an existing case never touches its reference,
+  // so don't burn a query (and a number) computing one.
+  const kase = existingCase
+    ? await db.case.update({
+        where: { candidateId: candidate.id },
+        data: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
+      })
+    : await withUniqueCaseReference((reference) =>
+        db.case.create({
+          data: {
+            reference,
+            candidateId: candidate.id,
+            requiredStages: stages,
+            assignedVerifierId: input.assignedVerifierId ?? null,
+            managedById: input.managedById,
+          },
+        }),
+      );
 
   for (const t of stages) {
     await db.stage.upsert({

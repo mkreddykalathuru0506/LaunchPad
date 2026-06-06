@@ -90,6 +90,12 @@ export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
               hint={file(i, "relieving") ? `Saved: ${file(i, "relieving")!.filename}. Re-select to replace.` : undefined} />
             <FileField name={`emp_${i}_payslip`} label="Last payslip / Form-16 / W-2" accept="image/*,.pdf"
               hint={file(i, "payslip") ? `Saved: ${file(i, "payslip")!.filename}. Re-select to replace.` : undefined} />
+            {/* Carry the already-stored document ids through the form so a
+                resubmit keeps them with THIS row even if the employer name is
+                edited — server re-validates they belong to the case. */}
+            <input type="hidden" name={`emp_${i}_offer_docId`} value={file(i, "offer")?.id ?? ""} />
+            <input type="hidden" name={`emp_${i}_relieving_docId`} value={file(i, "relieving")?.id ?? ""} />
+            <input type="hidden" name={`emp_${i}_payslip_docId`} value={file(i, "payslip")?.id ?? ""} />
           </FieldGrid>
         )}
       />

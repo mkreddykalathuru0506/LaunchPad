@@ -105,16 +105,14 @@ async function main() {
     },
   });
 
-  const defaultStages: StageType[] = [
-    StageType.IDENTITY,
-    StageType.ADDRESS,
-    StageType.EDUCATION,
-    StageType.EMPLOYMENT,
-    StageType.CRIMINAL,
-    StageType.PHOTO,
-    StageType.VIDEO,
-    StageType.REFERENCE,
-  ];
+  // Eric (the CLEARED demo case) must have EVERY required stage approved —
+  // his set comes from stagesForCandidateType(CANDIDATE, veteran=true), so
+  // build the all-approved override from exactly that (the old hand-rolled
+  // list included retired REFERENCE and omitted VETERAN, leaving his CLEARED
+  // case with a NOT_STARTED veteran stage).
+  const allApproved = Object.fromEntries(
+    stagesForCandidateType(CandidateType.CANDIDATE, true).map((s) => [s, StageStatus.APPROVED]),
+  ) as Partial<Record<StageType, StageStatus>>;
 
   type SeedCandidate = {
     email: string;
@@ -136,7 +134,7 @@ async function main() {
     { email: "deepa@example.com", name: "Deepa Iyer", type: CandidateType.TRAINER, position: "Cloud Trainer", caseStatus: CaseStatus.NEEDS_CORRECTION, ref: "LP-2026-0004",
       stageOverrides: { IDENTITY: StageStatus.APPROVED, ADDRESS: StageStatus.NEEDS_CORRECTION, EDUCATION: StageStatus.APPROVED, EMPLOYMENT: StageStatus.UNDER_REVIEW } },
     { email: "eric@example.com", name: "Eric Johnson", type: CandidateType.CANDIDATE, position: "Senior SRE", veteran: true, caseStatus: CaseStatus.CLEARED, ref: "LP-2026-0005",
-      stageOverrides: Object.fromEntries(defaultStages.map(s => [s, StageStatus.APPROVED])) as Partial<Record<StageType, StageStatus>> },
+      stageOverrides: allApproved },
     { email: "farah@example.com", name: "Farah Khan", type: CandidateType.CONTRACTOR, position: "Security Consultant", caseStatus: CaseStatus.REJECTED, ref: "LP-2026-0006",
       stageOverrides: { IDENTITY: StageStatus.APPROVED, ADDRESS: StageStatus.APPROVED, EDUCATION: StageStatus.REJECTED } },
   ];

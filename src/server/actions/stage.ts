@@ -602,10 +602,21 @@ async function submitEmploymentStageImpl(formData: FormData) {
     if (m && m[1] !== undefined) rows.push(Number(m[1]));
   }
 
-  // Prior rows (keyed by employer) let a text-only resubmit keep previously
-  // uploaded offer/relieving/payslip docs instead of silently wiping them.
-  const priorEmployments = await db.employment.findMany({ where: { caseId: kase.id } });
-  const priorByEmployer = new Map(priorEmployments.map((e) => [e.employer.trim().toLowerCase(), e]));
+  // Documents survive resubmits via hidden `emp_{i}_{field}_docId` inputs the
+  // form carries per ROW (matching by employer name cross-wired rows that
+  // share a name and lost docs when the name itself was corrected). The ids
+  // are client-supplied, so only accept ones that belong to THIS case.
+  const caseDocIds = new Set(
+    (await db.document.findMany({ where: { caseId: kase.id }, select: { id: true } })).map((d) => d.id),
+  );
+  const rowDocId = (i: number, field: "offer" | "relieving" | "payslip"): string | undefined => {
+    // A freshly selected file (stored by the draft persist above) wins…
+    const fresh = formData.get(`emp_${i}_${field}`);
+    if (fresh instanceof File && fresh.size > 0) return draft.files[`emp_${i}_${field}`]?.id;
+    // …otherwise keep the document the form displayed as "Saved".
+    const kept = formData.get(`emp_${i}_${field}_docId`)?.toString();
+    return kept && caseDocIds.has(kept) ? kept : undefined;
+  };
 
   // Validate every row BEFORE deleting anything, so a bad row never wipes the
   // candidate's existing employment history.
@@ -622,7 +633,6 @@ async function submitEmploymentStageImpl(formData: FormData) {
       managerPhone: formData.get(`emp_${i}_mgrPhone`)?.toString() || undefined,
       reasonForLeaving: formData.get(`emp_${i}_reason`)?.toString() || undefined,
     });
-    const prior = priorByEmployer.get(parsed.employer.trim().toLowerCase());
     return {
       caseId: kase.id,
       employer: parsed.employer,
@@ -635,9 +645,9 @@ async function submitEmploymentStageImpl(formData: FormData) {
       managerEmail: parsed.managerEmail ?? null,
       managerPhone: parsed.managerPhone ?? null,
       reasonForLeaving: parsed.reasonForLeaving ?? null,
-      offerLetterDocId: draft.files[`emp_${i}_offer`]?.id ?? prior?.offerLetterDocId ?? undefined,
-      relievingDocId: draft.files[`emp_${i}_relieving`]?.id ?? prior?.relievingDocId ?? undefined,
-      payslipDocId: draft.files[`emp_${i}_payslip`]?.id ?? prior?.payslipDocId ?? undefined,
+      offerLetterDocId: rowDocId(i, "offer"),
+      relievingDocId: rowDocId(i, "relieving"),
+      payslipDocId: rowDocId(i, "payslip"),
     };
   });
 
@@ -840,8 +850,10 @@ async function submitProfileForBgvImpl() {
   // doubles as the "already handed off" flag, and it gates ALL the side
   // effects — a double-click / stale-tab resubmit must not re-spam the desk's
   // bell or duplicate the audit trail (the email alone was guarded before).
+  // Only a SENT row counts: sendMail logs failed attempts too, and a failed
+  // first send must not permanently swallow the hand-off.
   const already = await db.emailLog.findFirst({
-    where: { caseId: kase.id, templateId: "profile.submitted.bgv" },
+    where: { caseId: kase.id, templateId: "profile.submitted.bgv", status: "sent" },
     select: { id: true },
   });
   if (!already) {

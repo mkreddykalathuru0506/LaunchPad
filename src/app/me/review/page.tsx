@@ -47,10 +47,11 @@ export default async function ReviewPage({
   const allDone = incomplete.length === 0;
 
   // The consolidated hand-off email doubles as the "already submitted" flag
-  // (same check the action uses) — once handed off, corrections re-enter
-  // review automatically on stage resubmit; the button stays disabled.
+  // (same check the action uses; "sent" only — a failed attempt must not
+  // disable retrying) — once handed off, corrections re-enter review
+  // automatically on stage resubmit; the button stays disabled.
   const alreadySubmitted = !!(await db.emailLog.findFirst({
-    where: { caseId: kase.id, templateId: "profile.submitted.bgv" },
+    where: { caseId: kase.id, templateId: "profile.submitted.bgv", status: "sent" },
     select: { id: true },
   }));
 
