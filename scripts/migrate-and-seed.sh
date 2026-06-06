@@ -54,4 +54,11 @@ npx prisma generate
 log "Running seed (prisma/seed.ts)"
 npx tsx prisma/seed.ts
 
+# Data migration, not schema: re-seals any legacy IDENTITY payloads that
+# still hold a plaintext document number (pre-encryption rows). Idempotent —
+# scans and skips already-sealed rows, so re-runs are no-ops. Needs
+# ENCRYPTION_KEY, which the migrate service gets via env_file: .env.
+log "Re-sealing legacy plaintext identity payloads (idempotent)"
+npx tsx scripts/encrypt-legacy-identity-payloads.ts
+
 log "Done"
