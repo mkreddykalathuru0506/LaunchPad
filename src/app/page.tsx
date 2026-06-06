@@ -3,23 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/logo";
 import {
   ShieldCheck, Fingerprint, GraduationCap, Briefcase, FileSearch,
-  Camera, Video, Users, MapPin, Medal, ArrowRight, CheckCircle2, Lock, Sparkles,
+  Camera, Video, MapPin, Medal, ArrowRight, CheckCircle2, Lock,
 } from "lucide-react";
 
+// One restrained treatment for every card — consistency over rainbow tints
+// (Trust & Authority style; see design-system/launch-pad/MASTER.md).
 const stages = [
-  { icon: Fingerprint, title: "Identity", blurb: "Government ID + biometric match.", tint: "from-indigo-500 to-violet-500" },
-  { icon: MapPin, title: "Address", blurb: "Current + permanent with proof.", tint: "from-emerald-500 to-teal-500" },
-  { icon: GraduationCap, title: "Education", blurb: "SSC, Intermediate, Degree verification.", tint: "from-amber-500 to-orange-500" },
-  { icon: Briefcase, title: "Employment", blurb: "HR-confirmed work history.", tint: "from-rose-500 to-pink-500" },
-  { icon: FileSearch, title: "Criminal", blurb: "Multi-jurisdiction record search.", tint: "from-red-500 to-rose-500" },
-  { icon: Medal, title: "Veteran Status", blurb: "Optional, USERRA-compliant.", tint: "from-sky-500 to-blue-500" },
-  { icon: Camera, title: "Photo", blurb: "Liveness + face match.", tint: "from-fuchsia-500 to-purple-500" },
-  { icon: Video, title: "Video", blurb: "Recorded prompt-phrase capture.", tint: "from-cyan-500 to-sky-500" },
-  { icon: Users, title: "Reference", blurb: "Structured professional references.", tint: "from-lime-500 to-emerald-500" },
+  { icon: Fingerprint, title: "Identity", blurb: "Government ID + biometric match." },
+  { icon: MapPin, title: "Address", blurb: "Current + permanent with proof." },
+  { icon: GraduationCap, title: "Education", blurb: "SSC, Intermediate, Degree verification." },
+  { icon: Briefcase, title: "Employment", blurb: "HR-confirmed work history." },
+  { icon: FileSearch, title: "Criminal", blurb: "Multi-jurisdiction record search." },
+  { icon: Camera, title: "Photo", blurb: "Liveness + face match." },
+  { icon: Video, title: "Video", blurb: "Recorded prompt-phrase capture." },
+  { icon: Medal, title: "Veteran Status", blurb: "Optional, USERRA-compliant." },
 ];
 
 const stats = [
-  { value: "9", label: "Verification stages" },
+  { value: "8", label: "Verification stages" },
   { value: "72h", label: "Per-stage SLA" },
   { value: "FCRA · DPDP", label: "Compliance-aware" },
   { value: "SOC 2", label: "Audit log built-in" },
@@ -34,7 +35,7 @@ export default function Home() {
           <Logo />
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild><Link href="/login">Sign in</Link></Button>
-            <Button asChild><Link href="/login">Candidate portal <ArrowRight className="h-4 w-4" /></Link></Button>
+            <Button variant="brand" asChild><Link href="/login">Candidate portal <ArrowRight className="h-4 w-4" /></Link></Button>
           </div>
         </div>
       </header>
@@ -44,24 +45,24 @@ export default function Home() {
         <div className="absolute inset-0 -z-10 gradient-hero" />
         <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         <div className="container py-24 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            <Sparkles className="h-3.5 w-3.5" />
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand/5 px-3 py-1 text-xs font-medium text-brand">
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
             ElivixIT internal · Background verification platform
           </span>
           <h1 className="mx-auto mt-6 max-w-4xl text-balance text-5xl font-semibold leading-tight tracking-tight sm:text-6xl">
             Onboard with{" "}
-            <span className="bg-gradient-to-r from-primary via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary to-brand bg-clip-text text-transparent dark:from-foreground dark:to-brand">
               verified trust
             </span>
             <br />
             from invite to day one.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground">
-            Launch Pad runs nine verification stages — identity, address, education, employment, criminal,
-            veteran, photo, video, and reference — in one tracked, audited workflow.
+            Launch Pad runs every verification stage — identity, address, education, employment,
+            criminal, photo, video, and an optional veteran check — in one tracked, audited workflow.
           </p>
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <Button size="lg" asChild>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Button size="lg" variant="brand" asChild>
               <Link href="/login">Open your case <ArrowRight className="h-4 w-4" /></Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
@@ -86,25 +87,25 @@ export default function Home() {
         <div className="container py-24">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <span className="inline-block h-1 w-1 rounded-full bg-primary" />
+              <span className="inline-block h-1 w-1 rounded-full bg-brand" />
               Workflow
             </div>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Nine stages, one source of truth</h2>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Eight stages, one source of truth</h2>
             <p className="mt-3 text-muted-foreground">
               Each stage has its own state machine: submitted → under review → approved, with a one-click
               "needs correction" loop that emails the candidate a single-use resubmission link.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {stages.map(({ icon: Icon, title, blurb, tint }) => (
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {stages.map(({ icon: Icon, title, blurb }) => (
               <div
                 key={title}
-                className="group relative overflow-hidden rounded-2xl border bg-card/80 p-6 backdrop-blur transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow-lg"
+                className="group relative overflow-hidden rounded-2xl border bg-card/80 p-6 backdrop-blur transition-all hover:-translate-y-px hover:border-brand/40 hover:shadow-lg"
               >
-                <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${tint} opacity-60`} />
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${tint} text-white shadow-sm`}>
-                  <Icon className="h-5 w-5" />
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-brand/60 via-brand/20 to-transparent" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand ring-1 ring-inset ring-brand/20 transition-colors group-hover:bg-brand group-hover:text-brand-foreground">
+                  <Icon className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="mt-4 text-base font-semibold">{title}</div>
                 <p className="mt-1 text-sm text-muted-foreground">{blurb}</p>
@@ -119,7 +120,7 @@ export default function Home() {
         <div className="container py-24">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <span className="inline-block h-1 w-1 rounded-full bg-primary" />
+              <span className="inline-block h-1 w-1 rounded-full bg-brand" />
               Lifecycle
             </div>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">How a case moves</h2>
@@ -133,7 +134,7 @@ export default function Home() {
               { step: "04", title: "Clear", text: "Manager issues a signed PDF clearance report when all stages are approved." },
             ].map((s, i) => (
               <li key={s.step} className="relative rounded-2xl border bg-card p-6">
-                <div className="tabnum text-[11px] font-mono font-semibold tracking-wider text-primary">{s.step}</div>
+                <div className="tabnum text-[11px] font-mono font-semibold tracking-wider text-brand">{s.step}</div>
                 <div className="mt-2 text-base font-semibold">{s.title}</div>
                 <p className="mt-2 text-sm text-muted-foreground">{s.text}</p>
               </li>
@@ -147,7 +148,7 @@ export default function Home() {
         <div className="container grid items-center gap-12 py-24 lg:grid-cols-2">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <span className="inline-block h-1 w-1 rounded-full bg-primary" />
+              <span className="inline-block h-1 w-1 rounded-full bg-brand" />
               Security
             </div>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Built for sensitive data</h2>
@@ -172,11 +173,11 @@ export default function Home() {
             </ul>
           </div>
           <div className="relative">
-            <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-br from-primary/20 via-fuchsia-500/15 to-cyan-500/15 blur-2xl" />
+            <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-br from-brand/20 via-brand/10 to-primary/10 blur-2xl" />
             <div className="rounded-2xl border bg-card p-8 shadow-xl">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Lock className="h-5 w-5" />
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                  <Lock className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
                   <div className="text-sm font-semibold">SOC 2-shaped access controls</div>
