@@ -18,9 +18,13 @@ export default function ErrorBoundary({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+      <div className="absolute inset-0 -z-10 gradient-hero" aria-hidden />
       <Logo />
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+      <div
+        aria-hidden
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20"
+      >
         <AlertTriangle className="h-7 w-7" />
       </div>
       <div className="space-y-2">
@@ -37,7 +41,7 @@ export default function ErrorBoundary({
       </div>
       <div className="flex items-center gap-2">
         <Button onClick={() => reset()}>
-          <RotateCw className="h-4 w-4" />
+          <RotateCw className="h-4 w-4" aria-hidden />
           Try again
         </Button>
         <Button variant="outline" asChild>

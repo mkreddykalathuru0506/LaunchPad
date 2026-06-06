@@ -12,8 +12,15 @@ export function Logo({
 }) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-        <Rocket className="h-5 w-5" />
+      {/* On permanently-navy surfaces (sidebar, login panel) the navy primary
+          chip would vanish in light mode — use the sky sidebar accent there. */}
+      <span
+        className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-lg shadow-sm",
+          forSidebar ? "bg-sidebar-primary text-sidebar" : "bg-primary text-primary-foreground"
+        )}
+      >
+        <Rocket className="h-5 w-5" aria-hidden />
       </span>
       {withWordmark && (
         <div className="leading-tight">
@@ -27,11 +34,11 @@ export function Logo({
           </div>
           <div
             className={cn(
-              "text-[10px] uppercase tracking-[0.18em]",
-              forSidebar ? "text-white/60" : "text-muted-foreground"
+              "text-[11px] font-medium tracking-wide",
+              forSidebar ? "text-white/70" : "text-muted-foreground"
             )}
           >
-            ElivixIT · Background Verification
+            ElvixIT · Background Verification
           </div>
         </div>
       )}

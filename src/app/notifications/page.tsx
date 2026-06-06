@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { getNotificationsForUser } from "@/server/queries/notifications";
 import { PageHeader } from "@/components/app/page-header";
-import { Empty } from "@/components/ui/empty";
+import { EmptyState } from "@/components/v2/empty-state";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
   markAllNotificationsRead,
@@ -73,7 +73,8 @@ export default async function NotificationsPage() {
       />
 
       {items.length === 0 ? (
-        <Empty
+        <EmptyState
+          icon={<Bell aria-hidden />}
           title="You're all caught up"
           description="Notifications about your case, stage decisions, and corrections will appear here."
         />
@@ -92,24 +93,24 @@ export default async function NotificationsPage() {
                       key={n.id}
                       className={cn(
                         "relative flex items-start gap-3 p-4 transition-colors",
-                        unread && "bg-primary/5"
+                        unread && "bg-brand/5"
                       )}
                     >
                       {unread && (
                         <span
                           aria-hidden
-                          className="absolute inset-y-2 left-0 w-1 rounded-r bg-primary"
+                          className="absolute inset-y-2 left-0 w-1 rounded-r bg-brand"
                         />
                       )}
                       <span
                         className={cn(
                           "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                           unread
-                            ? "bg-primary/15 text-primary"
+                            ? "bg-brand/10 text-brand ring-1 ring-inset ring-brand/20"
                             : "bg-muted text-muted-foreground"
                         )}
                       >
-                        <Bell className="h-4 w-4" />
+                        <Bell className="h-4 w-4" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -134,7 +135,7 @@ export default async function NotificationsPage() {
                           {n.link && (
                             <Link
                               href={n.link}
-                              className="text-xs font-medium text-primary hover:underline"
+                              className="text-xs font-medium text-brand hover:underline"
                             >
                               Open
                             </Link>

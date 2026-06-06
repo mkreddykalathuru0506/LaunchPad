@@ -34,9 +34,12 @@ export default async function ChangePasswordPage() {
   }
   return (
     <div className="mx-auto max-w-md py-12">
-      <Card>
+      <Card className="rounded-2xl">
         <CardHeader>
-          <CardTitle>Set a new password</CardTitle>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Credential Rotation
+          </span>
+          <CardTitle className="font-display">Set a new password</CardTitle>
           <CardDescription>
             You signed in with a temporary password. Please choose a new password
             before continuing — it'll only take a moment.

@@ -30,6 +30,11 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+# GitHub forces JS actions onto Node 24 from 2026-06-16; opt in now (only
+# checkout@v4 here — the SSH action is Docker-based and unaffected).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   deploy:
     name: Deploy

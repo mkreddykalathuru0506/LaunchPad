@@ -7,7 +7,9 @@ export const Table = ({ className, ...p }: React.HTMLAttributes<HTMLTableElement
   </div>
 );
 export const THead = ({ className, ...p }: React.HTMLAttributes<HTMLTableSectionElement>) => (
-  <thead className={cn("[&_tr]:border-b bg-muted/40", className)} {...p} />
+  // Opaque token bg so a consumer can pin the header (className="sticky top-0 z-10")
+  // inside the scroll container without rows bleeding through.
+  <thead className={cn("[&_tr]:border-b bg-muted [&_th]:bg-muted", className)} {...p} />
 );
 export const TBody = ({ className, ...p }: React.HTMLAttributes<HTMLTableSectionElement>) => (
   <tbody className={cn("[&_tr:last-child]:border-0", className)} {...p} />

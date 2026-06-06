@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
+import { db } from "@/lib/db";
 import { getCaseForCandidate } from "@/server/queries/case";
 import { submitProfileForBgv } from "@/server/actions/stage";
-import { stagesForCandidateType } from "@/lib/stages";
+import { requiredStagesForCase } from "@/lib/stages";
+import { maskTail } from "@/lib/crypto";
 import { stageLabels, formatDate } from "@/lib/utils";
 import { SectionHeading } from "@/components/v2/section-heading";
 import {
@@ -37,10 +39,22 @@ export default async function ReviewPage({
   }
 
   const kase = cand.case;
-  const required = stagesForCandidateType(cand.candidateType, cand.isVeteran);
+  // The case's provisioned required set — NOT re-derived from candidateType,
+  // which disagrees for portal cases with a custom requiredStages list (and
+  // would disable the submit button on stages that were never provisioned).
+  const required = requiredStagesForCase(kase, kase.stages);
   const byType = new Map(kase.stages.map((s) => [s.type, s]));
   const incomplete = required.filter((t) => !DONE.includes(byType.get(t)?.status ?? "NOT_STARTED"));
   const allDone = incomplete.length === 0;
+
+  // The consolidated hand-off email doubles as the "already submitted" flag
+  // (same check the action uses; "sent" only — a failed attempt must not
+  // disable retrying) — once handed off, corrections re-enter review
+  // automatically on stage resubmit; the button stays disabled.
+  const alreadySubmitted = !!(await db.emailLog.findFirst({
+    where: { caseId: kase.id, templateId: "profile.submitted.bgv", status: "sent" },
+    select: { id: true },
+  }));
 
   return (
     <div className="space-y-8">
@@ -54,7 +68,7 @@ export default async function ReviewPage({
         actions={
           <Button asChild variant="ghost" size="sm">
             <Link href="/me">
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to dashboard
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Back to dashboard
             </Link>
           </Button>
         }
@@ -63,7 +77,7 @@ export default async function ReviewPage({
       {!allDone && (
         <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/20">
-            <AlertTriangle className="h-5 w-5 text-warning-foreground" />
+            <AlertTriangle className="h-5 w-5 text-warning-foreground dark:text-warning" aria-hidden="true" />
           </div>
           <div className="flex-1 text-sm">
             <div className="font-semibold">
@@ -85,14 +99,14 @@ export default async function ReviewPage({
               <CardElevHeader>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <CardElevTitle>{stageLabels[type]}</CardElevTitle>
-                    <CardElevDescription>
+                    <CardElevTitle className="font-display">{stageLabels[type]}</CardElevTitle>
+                    <CardElevDescription className="mt-1.5">
                       <StageStatusBadge status={status} />
                     </CardElevDescription>
                   </div>
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/me/stage/${type.toLowerCase()}`}>
-                      <Pencil className="h-3.5 w-3.5" /> Edit
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit
                     </Link>
                   </Button>
                 </div>
@@ -114,18 +128,24 @@ export default async function ReviewPage({
                   allDone ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                 }`}
               >
-                {allDone ? <CheckCircle2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
+                {allDone ? <CheckCircle2 className="h-5 w-5" aria-hidden="true" /> : <Send className="h-5 w-5" aria-hidden="true" />}
               </div>
               <div className="text-sm">
-                <div className="font-semibold">Submit your profile for background verification</div>
+                <div className="font-semibold">
+                  {alreadySubmitted
+                    ? "Profile submitted — the BGV team is reviewing it"
+                    : "Submit your profile for background verification"}
+                </div>
                 <p className="mt-0.5 text-muted-foreground">
-                  This sends your completed profile to the BGV team. You&apos;ll be notified by email as it&apos;s reviewed.
+                  {alreadySubmitted
+                    ? "If a stage needs corrections you'll be emailed; fixing and resubmitting that stage sends it back to review automatically."
+                    : "This sends your completed profile to the BGV team. You'll be notified by email as it's reviewed."}
                 </p>
               </div>
             </div>
             <form action={submitProfileForBgv}>
-              <Button type="submit" disabled={!allDone}>
-                <Send className="h-4 w-4" /> Submit profile for BGV
+              <Button type="submit" variant="brand" disabled={!allDone || alreadySubmitted}>
+                <Send className="h-4 w-4" aria-hidden="true" /> {alreadySubmitted ? "Submitted" : "Submit profile for BGV"}
               </Button>
             </form>
           </div>
@@ -158,9 +178,20 @@ function StageSummary({
   switch (type) {
     case "IDENTITY": {
       const name = [cand.legalFirstName, cand.legalMiddleName, cand.legalLastName].filter(Boolean).join(" ");
+      // Sensitive identifiers render masked even for the candidate — the full
+      // number lives only as ciphertext (documentNumberEncrypted).
+      const p = (stage?.payload ?? {}) as { documentType?: string; documentNumberLast4?: string; documentNumber?: string };
+      const idMasked = p.documentNumberLast4
+        ? `••••${p.documentNumberLast4}`
+        : p.documentNumber
+          ? maskTail(p.documentNumber)
+          : null;
       return (
         <Rows>
           <Row k="Legal name" v={name || "—"} />
+          {p.documentType && (
+            <Row k="ID document" v={`${p.documentType} · ${idMasked ?? "—"}`} />
+          )}
           <Row k="Nationality" v={cand.nationality ?? "—"} />
           <Row k="Phone" v={cand.phone ?? "—"} />
         </Rows>
@@ -228,10 +259,14 @@ function StageSummary({
     }
     default: {
       // CRIMINAL / PHOTO / VIDEO — render primitive payload values, else status.
+      // Guard: never surface ciphertext or raw sensitive identifiers, whatever
+      // payload shape a stage stores.
       const payload = (stage?.payload ?? {}) as unknown as Record<string, unknown>;
       const entries = Object.entries(payload).filter(
         ([k, val]) =>
           k !== "__draft" &&
+          !k.endsWith("Encrypted") &&
+          k !== "documentNumber" &&
           (typeof val === "string" || typeof val === "number" || typeof val === "boolean") &&
           String(val).length > 0,
       );
@@ -250,13 +285,13 @@ function StageSummary({
 }
 
 function Rows({ children }: { children: React.ReactNode }) {
-  return <div className="divide-y divide-border/60">{children}</div>;
+  return <div className="divide-y divide-dashed divide-border/70">{children}</div>;
 }
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5 text-sm">
-      <span className="shrink-0 text-muted-foreground">{k}</span>
+    <div className="flex items-start justify-between gap-4 py-2 text-sm">
+      <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{k}</span>
       <span className="text-right font-medium">{v || "—"}</span>
     </div>
   );

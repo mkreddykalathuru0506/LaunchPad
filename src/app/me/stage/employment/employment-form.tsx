@@ -11,17 +11,27 @@ export type EmploymentDraft = {
   files: Record<string, { id: string; filename: string }>;
 };
 
-// Count the leading sequential rows saved in a draft (by their required marker).
-function rowCount(fields: Record<string, string> | undefined, marker: (i: number) => string): number {
+// Rows to render = highest saved row index + 1, scanned over EVERY saved key
+// (fields AND files). A sequential walk on one marker field truncated the
+// restore whenever an early row had that field blank, silently dropping the
+// later rows' saved data.
+function rowCount(initial?: EmploymentDraft): number {
   let n = 0;
-  while (fields && fields[marker(n)] !== undefined) n++;
+  const scan = (obj?: Record<string, unknown>) => {
+    for (const k of Object.keys(obj ?? {})) {
+      const m = k.match(/^emp_(\d+)_/);
+      if (m) n = Math.max(n, Number(m[1]) + 1);
+    }
+  };
+  scan(initial?.fields);
+  scan(initial?.files);
   return n;
 }
 
 export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
   const v = (i: number, k: string) => initial?.fields[`emp_${i}_${k}`] ?? "";
   const file = (i: number, k: string) => initial?.files[`emp_${i}_${k}`];
-  const count = rowCount(initial?.fields, (i) => `emp_${i}_employer`);
+  const count = rowCount(initial);
 
   return (
     <form action={submitEmploymentStage} className="space-y-6">
@@ -42,7 +52,7 @@ export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
                 name={`emp_${i}_type`}
                 required
                 defaultValue={v(i, "type") || "FullTime"}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-ring"
+                className="flex h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm shadow-sm transition-colors focus-ring"
               >
                 <option>FullTime</option>
                 <option>PartTime</option>
@@ -80,6 +90,12 @@ export function EmploymentForm({ initial }: { initial?: EmploymentDraft }) {
               hint={file(i, "relieving") ? `Saved: ${file(i, "relieving")!.filename}. Re-select to replace.` : undefined} />
             <FileField name={`emp_${i}_payslip`} label="Last payslip / Form-16 / W-2" accept="image/*,.pdf"
               hint={file(i, "payslip") ? `Saved: ${file(i, "payslip")!.filename}. Re-select to replace.` : undefined} />
+            {/* Carry the already-stored document ids through the form so a
+                resubmit keeps them with THIS row even if the employer name is
+                edited — server re-validates they belong to the case. */}
+            <input type="hidden" name={`emp_${i}_offer_docId`} value={file(i, "offer")?.id ?? ""} />
+            <input type="hidden" name={`emp_${i}_relieving_docId`} value={file(i, "relieving")?.id ?? ""} />
+            <input type="hidden" name={`emp_${i}_payslip_docId`} value={file(i, "payslip")?.id ?? ""} />
           </FieldGrid>
         )}
       />

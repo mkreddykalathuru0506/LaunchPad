@@ -19,16 +19,21 @@ export function StageFormFooter({
   return (
     <>
       <input type="hidden" name="__stage" value={stageType} />
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <button
-          type="submit"
-          formAction={saveStageDraft}
-          formNoValidate
-          className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-muted focus-ring"
-        >
-          Save draft
-        </button>
-        <SubmitButton>{submitLabel}</SubmitButton>
+      <div className="flex flex-col gap-3 border-t border-dashed pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <button
+            type="submit"
+            formAction={saveStageDraft}
+            formNoValidate
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-input bg-background px-4 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-ring sm:w-auto"
+          >
+            Save draft
+          </button>
+          <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+            drafts keep your progress
+          </span>
+        </div>
+        <SubmitButton variant="brand" size="lg">{submitLabel}</SubmitButton>
       </div>
     </>
   );

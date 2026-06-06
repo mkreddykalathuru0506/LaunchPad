@@ -60,15 +60,17 @@ function SidebarContent({
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           backgroundImage:
-            "radial-gradient(40% 30% at 10% 0%, hsl(220 90% 60% / 0.35), transparent 60%), radial-gradient(40% 40% at 100% 100%, hsl(247 90% 60% / 0.25), transparent 60%)",
+            "radial-gradient(40% 30% at 10% 0%, hsl(201 96% 32% / 0.30), transparent 60%), radial-gradient(40% 40% at 100% 100%, hsl(199 89% 48% / 0.18), transparent 60%)",
         }}
       />
+      <div aria-hidden className="dot-grid-light pointer-events-none absolute inset-0 opacity-30" />
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-5">
         <Link
           href="/"
           onClick={onNavigate}
-          className="flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md"
+          aria-label="Launch Pad home"
+          className="flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60 rounded-md"
         >
           <Logo forSidebar />
         </Link>
@@ -79,7 +81,7 @@ function SidebarContent({
         {groups.map((group, gi) => (
           <div key={gi} className={cn(gi > 0 && "mt-6")}>
             {group.section && (
-              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted">
+              <div className="px-3 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-sidebar-muted">
                 {group.section}
               </div>
             )}
@@ -91,7 +93,7 @@ function SidebarContent({
                     {active && (
                       <span
                         aria-hidden
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-primary via-primary to-primary/60"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-gradient-to-b from-sidebar-primary via-sidebar-primary to-sidebar-primary/60"
                       />
                     )}
                     <Link
@@ -100,9 +102,9 @@ function SidebarContent({
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
-                        "outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                        "outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60",
                         active
-                          ? "bg-gradient-to-r from-primary/15 via-sidebar-accent to-sidebar-accent text-white shadow-[inset_0_0_0_1px_hsl(var(--sidebar-border))]"
+                          ? "bg-gradient-to-r from-sidebar-primary/15 via-sidebar-accent to-sidebar-accent text-white shadow-[inset_0_0_0_1px_hsl(var(--sidebar-border))]"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-white"
                       )}
                     >
@@ -110,7 +112,7 @@ function SidebarContent({
                         className={cn(
                           "flex h-5 w-5 shrink-0 items-center justify-center transition-colors",
                           active
-                            ? "text-primary"
+                            ? "text-sidebar-primary"
                             : "text-sidebar-muted group-hover:text-white"
                         )}
                       >
@@ -122,8 +124,12 @@ function SidebarContent({
                           tone={active ? "info" : "neutral"}
                           className={cn(
                             "ml-auto h-5 px-1.5 text-[10px] font-semibold",
-                            !active &&
-                              "bg-sidebar-accent text-sidebar-foreground/70 ring-sidebar-border"
+                            // Sidebar-specific fills: the info tone's bg-accent is
+                            // near-identical to the active row in dark, and neutral's
+                            // bg-muted is wrong on permanent navy.
+                            active
+                              ? "bg-sidebar-primary/15 text-sidebar-primary ring-sidebar-primary/30"
+                              : "bg-sidebar-accent text-sidebar-foreground/70 ring-sidebar-border"
                           )}
                         >
                           {item.badge}
@@ -142,7 +148,7 @@ function SidebarContent({
       <div className="border-t border-sidebar-border px-4 py-4">
         <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/60 p-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15 text-primary">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary/15 text-sidebar-primary">
               <LifeBuoy className="h-4 w-4" />
             </span>
             <div className="text-sm font-medium text-white">Need a hand?</div>
@@ -152,7 +158,7 @@ function SidebarContent({
           </p>
           <a
             href="mailto:bgv@elvixit.com"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-white hover:text-primary"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-white hover:text-sidebar-primary"
           >
             <Mail className="h-3.5 w-3.5" />
             bgv@elvixit.com
@@ -169,9 +175,9 @@ export function Sidebar({ items, footer }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop */}
+      {/* Desktop — floating navy rail */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border md:block"
+        className="fixed bottom-3 left-3 top-3 z-30 hidden w-64 overflow-hidden rounded-2xl border border-sidebar-border/70 shadow-2xl shadow-primary/20 md:block"
         aria-label="Primary"
       >
         <SidebarContent items={items} footer={footer} />

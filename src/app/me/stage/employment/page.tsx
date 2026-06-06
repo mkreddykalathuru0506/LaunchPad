@@ -3,7 +3,9 @@ import { getCaseForCandidate } from "@/server/queries/case";
 import { db } from "@/lib/db";
 import { StageShell } from "@/components/stage/stage-shell";
 import { EmploymentForm } from "./employment-form";
-import { draftFields, draftFiles } from "@/lib/stage-draft";
+import {
+  composeInitial, draftFields, draftFiles, employmentInitialFromRecords,
+} from "@/lib/stage-draft";
 
 export default async function EmploymentStagePage({ searchParams }: { searchParams?: { err?: string; saved?: string } }) {
   const session = await requireRole("CANDIDATE");
@@ -17,9 +19,16 @@ export default async function EmploymentStagePage({ searchParams }: { searchPara
       })
     : null;
 
+  // In-flight draft wins; otherwise prefill from the submitted rows (a
+  // successful submit clears __draft so corrections edit real data).
+  const initial = composeInitial(
+    { fields: draftFields(stage), files: draftFiles(stage) },
+    employmentInitialFromRecords(cand?.case?.employments ?? [], cand?.case?.documents ?? []),
+  );
+
   return (
     <StageShell type="EMPLOYMENT" stage={stage} lastCorrection={lastCorrection} error={typeof searchParams?.err === "string" ? searchParams.err : undefined} saved={searchParams?.saved === "1"}>
-      <EmploymentForm initial={{ fields: draftFields(stage), files: draftFiles(stage) }} />
+      <EmploymentForm initial={initial} />
     </StageShell>
   );
 }

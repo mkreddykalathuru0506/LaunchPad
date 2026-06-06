@@ -17,22 +17,30 @@ export default async function DocumentsPage() {
       {docs.length === 0 ? (
         <Empty title="No documents yet" description="Documents you upload through any stage will appear here." />
       ) : (
-        <Card>
+        <Card className="rounded-2xl">
+          <div className="flex items-center justify-between gap-2 border-b border-dashed px-4 py-3">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Document Ledger
+            </span>
+            <span className="font-mono text-[10px] tracking-wide text-muted-foreground tabnum">
+              {docs.length} file{docs.length === 1 ? "" : "s"}
+            </span>
+          </div>
           <CardContent className="p-0">
             <Table>
               <THead>
                 <TR>
-                  <TH>Filename</TH>
-                  <TH>Kind</TH>
-                  <TH>Size</TH>
-                  <TH>SHA-256</TH>
-                  <TH>Uploaded</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Filename</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Kind</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Size</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">SHA-256</TH>
+                  <TH className="font-mono text-[11px] uppercase tracking-wide">Uploaded</TH>
                 </TR>
               </THead>
               <TBody>
                 {docs.map((d) => (
                   <TR key={d.id}>
-                    <TD className="font-medium"><div className="inline-flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" />{d.filename}</div></TD>
+                    <TD className="font-medium"><div className="inline-flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{d.filename}</div></TD>
                     <TD>{d.kind}</TD>
                     <TD>{(d.sizeBytes / 1024).toFixed(1)} KB</TD>
                     <TD className="font-mono text-xs">{d.sha256.slice(0, 12)}…</TD>

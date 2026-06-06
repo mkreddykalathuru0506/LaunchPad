@@ -43,8 +43,11 @@ export function ChangePasswordForm({ email }: { email: string }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        Signed in as <code>{email}</code>
+      <div className="rounded-xl border border-dashed bg-secondary/40 px-3.5 py-2.5">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          Signed in as
+        </span>
+        <div className="mt-0.5 font-mono text-[13px] text-foreground">{email}</div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="pwd1">New password</Label>
@@ -57,7 +60,7 @@ export function ChangePasswordForm({ email }: { email: string }) {
           value={pwd1}
           onChange={(e) => setPwd1(e.target.value)}
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="font-mono text-[11px] tracking-wide text-muted-foreground">
           10+ characters, mixed case, with at least one digit and one symbol.
         </p>
       </div>
@@ -78,8 +81,8 @@ export function ChangePasswordForm({ email }: { email: string }) {
           {error}
         </div>
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      <Button type="submit" variant="brand" className="w-full" disabled={pending}>
+        {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
         Set new password
       </Button>
     </form>

@@ -3,6 +3,7 @@ import { hash } from "argon2";
 import { randomToken } from "@/lib/crypto";
 import { Role, CandidateType } from "@prisma/client";
 import { stagesForCandidateType } from "@/lib/stages";
+import { withUniqueCaseReference } from "@/lib/case-reference";
 import { notifyBgvTeam } from "@/server/notify";
 
 export type ProvisionCandidateInput = {
@@ -71,20 +72,35 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
   // Required BGV stages by candidate type — interns drop EMPLOYMENT; veteran is additive.
   const stages = stagesForCandidateType(input.candidateType, input.requireVeteran === true);
 
-  const count = await db.case.count();
-  const reference = `LP-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
-
-  const kase = await db.case.upsert({
+  // Whether a CASE already exists decides the "new case" notification below —
+  // the USER pre-existing is the wrong signal (a user whose earlier case was
+  // deleted still gets a brand-new case that the desk must hear about).
+  const existingCase = await db.case.findUnique({
     where: { candidateId: candidate.id },
-    update: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
-    create: {
-      reference,
-      candidateId: candidate.id,
-      requiredStages: stages,
-      assignedVerifierId: input.assignedVerifierId ?? null,
-      managedById: input.managedById,
-    },
+    select: { id: true },
   });
+
+  // Reference allocation + collision retry live in withUniqueCaseReference —
+  // the same path the portal webhook uses (count()+1 collided after any case
+  // deletion and 500'd the manager/admin create flows). Only the CREATE path
+  // allocates: re-provisioning an existing case never touches its reference,
+  // so don't burn a query (and a number) computing one.
+  const kase = existingCase
+    ? await db.case.update({
+        where: { candidateId: candidate.id },
+        data: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
+      })
+    : await withUniqueCaseReference((reference) =>
+        db.case.create({
+          data: {
+            reference,
+            candidateId: candidate.id,
+            requiredStages: stages,
+            assignedVerifierId: input.assignedVerifierId ?? null,
+            managedById: input.managedById,
+          },
+        }),
+      );
 
   for (const t of stages) {
     await db.stage.upsert({
@@ -94,9 +110,19 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
     });
   }
 
-  // Alert the BGV desk that a new candidate case exists (in-app bell). Only on
-  // first creation — re-running provisioning for an existing case shouldn't spam.
-  if (!existing) {
+  // Re-provisioning with a changed candidate type (e.g. CANDIDATE → INTERN)
+  // shrinks the required set; drop rows for stages that are no longer required
+  // but ONLY untouched ones — anything the candidate started keeps its data
+  // (status math ignores non-required rows either way).
+  await db.stage.deleteMany({
+    where: { caseId: kase.id, type: { notIn: stages }, status: "NOT_STARTED" },
+  });
+
+  // Alert the BGV desk that a new candidate case exists (in-app bell). Only
+  // when the CASE is new — re-running provisioning for an existing case
+  // shouldn't spam. (notifyBgvTeam is best-effort and never throws, so a
+  // notification hiccup can't fail provisioning after the case exists.)
+  if (!existingCase) {
     await notifyBgvTeam(kase.id, {
       kind: "CASE_CREATED",
       title: `New candidate — ${kase.reference}`,

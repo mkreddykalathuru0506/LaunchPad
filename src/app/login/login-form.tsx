@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: string; error?: string }) {
   const router = useRouter();
@@ -38,8 +38,11 @@ export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: 
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        Access · Credentials
+      </p>
+      <div className="space-y-1.5">
+        <Label htmlFor="email" className="text-[13px]">Email</Label>
         <Input
           id="email"
           type="email"
@@ -49,8 +52,8 @@ export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: 
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-[13px]">Password</Label>
         <Input
           id="password"
           type="password"
@@ -61,17 +64,25 @@ export function LoginForm({ callbackUrl, error: initialError }: { callbackUrl?: 
         />
       </div>
       {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+        >
+          <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>{error}</span>
         </div>
       )}
       {changed && !error && (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          Your password was updated. Please sign in with the new password.
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-success/40 bg-success/10 px-3 py-2 text-xs text-success"
+        >
+          <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>Your password was updated. Please sign in with the new password.</span>
         </div>
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" variant="brand" className="w-full" disabled={pending}>
+        {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         Sign in
       </Button>
     </form>

@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { randomToken } from "@/lib/crypto";
 import { CaseStatus, Role, StageStatus, StageType } from "@prisma/client";
+import { computeCaseStatus } from "@/lib/stages";
 import { generateClearedReport } from "@/server/pdf/cleared-report";
 import {
   emailCandidateCleared, emailCandidateRejected, emailStageCorrection,
@@ -21,18 +22,16 @@ const decisionSchema = z.object({
 });
 
 async function recomputeCase(caseId: string) {
-  const stages = await db.stage.findMany({ where: { caseId } });
-  const required = stages.length;
-  const approved = stages.filter((s) => s.status === "APPROVED").length;
-  const anySubmitted = stages.some((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW");
-  const anyCorrection = stages.some((s) => s.status === "NEEDS_CORRECTION");
-  const anyRejected = stages.some((s) => s.status === "REJECTED");
+  const kase = await db.case.findUnique({
+    where: { id: caseId },
+    select: { requiredStages: true, stages: { select: { type: true, status: true } } },
+  });
+  if (!kase) return "IN_PROGRESS" as const;
 
-  let status: "DRAFT" | "IN_PROGRESS" | "AWAITING_REVIEW" | "NEEDS_CORRECTION" | "CLEARED" | "REJECTED" = "IN_PROGRESS";
-  if (approved === required && required > 0) status = "CLEARED";
-  else if (anyRejected) status = "REJECTED";
-  else if (anyCorrection) status = "NEEDS_CORRECTION";
-  else if (anySubmitted) status = "AWAITING_REVIEW";
+  // Shared required-set status math (lib/stages.ts) — this used to be a
+  // divergent copy of the candidate-side transition that counted EVERY stage
+  // row, so one stray row blocked CLEARED forever.
+  const status = computeCaseStatus(kase, kase.stages);
 
   await db.case.update({
     where: { id: caseId },

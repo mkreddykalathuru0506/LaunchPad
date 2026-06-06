@@ -91,7 +91,7 @@ export function ActivityFeed({
                   <>
                     {" "}
                     <span className="text-muted-foreground">on</span>{" "}
-                    <span className="tabnum font-mono text-xs font-medium text-primary">
+                    <span className="tabnum font-mono text-xs font-medium text-brand">
                       {e.caseRef}
                     </span>
                   </>

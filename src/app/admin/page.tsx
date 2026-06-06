@@ -62,7 +62,7 @@ export default async function AdminOverview() {
               }))}
             />
             <div className="mt-4 text-right">
-              <Link href="/admin/audit" className="text-xs font-medium text-primary hover:underline">
+              <Link href="/admin/audit" className="text-xs font-medium text-brand hover:underline">
                 View full audit log →
               </Link>
             </div>
@@ -85,10 +85,10 @@ export default async function AdminOverview() {
                 <li key={q.href}>
                   <Link
                     href={q.href}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card p-3 transition-all hover:-translate-y-px hover:border-primary/30 hover:shadow-sm"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-card p-3 transition-all hover:-translate-y-px hover:border-brand/40 hover:shadow-sm"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand ring-1 ring-inset ring-brand/20">
                         {q.icon}
                       </span>
                       <div>

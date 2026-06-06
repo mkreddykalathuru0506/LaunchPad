@@ -29,7 +29,7 @@ export default async function AllCases() {
             <TBody>
               {cases.map((c) => (
                 <TR key={c.id}>
-                  <TD className="font-medium">{c.reference}</TD>
+                  <TD className="tabnum font-mono text-xs text-brand">{c.reference}</TD>
                   <TD>{c.candidate.user.name ?? c.candidate.user.email}</TD>
                   <TD>{c.candidate.candidateType}</TD>
                   <TD><CaseStatusBadge status={c.status} /></TD>

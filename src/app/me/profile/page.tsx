@@ -11,8 +11,13 @@ export default async function ProfilePage() {
   return (
     <>
       <PageHeader title="Profile" description="Identity-verified details from your case." />
-      <Card>
-        <CardHeader><CardTitle>Personal</CardTitle></CardHeader>
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Section 01 · Personal
+          </span>
+          <CardTitle className="font-display">Personal details</CardTitle>
+        </CardHeader>
         <CardContent>
           <FieldGrid>
             <Field label="Email"><Input value={cand?.user.email ?? ""} readOnly /></Field>

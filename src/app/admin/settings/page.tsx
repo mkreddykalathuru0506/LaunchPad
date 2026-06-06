@@ -11,16 +11,22 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" description="Branding and SLA defaults." />
-      <Card>
+      <Card className="rounded-2xl">
         <CardContent className="p-6">
-          <form action={updateSettings} className="space-y-4">
+          <form action={updateSettings} className="space-y-6">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                Settings · Branding &amp; SLA
+              </span>
+              <span aria-hidden className="hairline flex-1" />
+            </div>
             <FieldGrid>
               <Field label="App name" htmlFor="appName"><Input id="appName" name="appName" defaultValue={s.appName} required /></Field>
               <Field label="Brand color" htmlFor="brandColor"><Input id="brandColor" name="brandColor" defaultValue={s.brandColor} required /></Field>
               <Field label="Support email" htmlFor="supportEmail"><Input id="supportEmail" name="supportEmail" type="email" defaultValue={s.supportEmail} required /></Field>
               <Field label="Per-stage SLA (hours)" htmlFor="slaHoursPerStage"><Input id="slaHoursPerStage" name="slaHoursPerStage" type="number" defaultValue={s.slaHoursPerStage} required /></Field>
             </FieldGrid>
-            <div className="flex justify-end"><Button type="submit">Save settings</Button></div>
+            <div className="flex justify-end"><Button type="submit" variant="brand">Save settings</Button></div>
           </form>
         </CardContent>
       </Card>

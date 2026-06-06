@@ -25,23 +25,33 @@ export function StageShell({
           candidate can keep editing without losing their (draft-preserved) input. */}
       <FlowFeedback error={error} />
       <Link href="/me" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to dashboard
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to dashboard
       </Link>
 
-      <Card>
-        <CardHeader>
+      <Card className="rounded-2xl">
+        <CardHeader className="border-b border-dashed">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle>{stageLabels[type]}</CardTitle>
+            <div className="min-w-0">
+              <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                Stage dossier · {type}
+              </div>
+              <CardTitle className="mt-1 font-display">{stageLabels[type]}</CardTitle>
               <CardDescription>{stageBlurbs[type]}</CardDescription>
             </div>
-            <StageStatusBadge status={status} />
+            <div className="flex flex-col items-end gap-1.5">
+              <StageStatusBadge status={status} />
+              {stage?.submittedAt && (
+                <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Submitted {formatDateTime(stage.submittedAt)}
+                </span>
+              )}
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {saved && !error && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-success/40 bg-success/10 p-3">
-              <Save className="mt-0.5 h-4 w-4 text-success-foreground" />
+              <Save className="mt-0.5 h-4 w-4 text-success" aria-hidden="true" />
               <div className="flex-1 text-sm">
                 <div className="font-medium">Draft saved</div>
                 <p className="mt-0.5 text-muted-foreground">Your progress is saved. You can finish and submit anytime.</p>
@@ -50,7 +60,7 @@ export function StageShell({
           )}
           {error && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
-              <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+              <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" aria-hidden="true" />
               <div className="flex-1 text-sm">
                 <div className="font-medium">Couldn&apos;t save this stage</div>
                 <p className="mt-0.5 text-muted-foreground">{error}</p>
@@ -59,7 +69,7 @@ export function StageShell({
           )}
           {status === "NEEDS_CORRECTION" && lastCorrection && (
             <div className="mb-6 flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
-              <MessageSquareWarning className="mt-0.5 h-4 w-4 text-warning-foreground" />
+              <MessageSquareWarning className="mt-0.5 h-4 w-4 text-warning-foreground dark:text-warning" aria-hidden="true" />
               <div className="flex-1 text-sm">
                 <div className="font-medium">Correction requested {formatDateTime(lastCorrection.createdAt)}</div>
                 <p className="mt-0.5 text-muted-foreground">{lastCorrection.comment ?? "Please review and resubmit."}</p>

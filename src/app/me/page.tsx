@@ -2,25 +2,21 @@ import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { getCaseForCandidate } from "@/server/queries/case";
 import { db } from "@/lib/db";
-import { SectionHeading } from "@/components/v2/section-heading";
-import { StatCard } from "@/components/v2/stat-card";
-import { ProgressRing } from "@/components/v2/progress-ring";
 import { Timeline, type TimelineItem } from "@/components/v2/timeline";
 import { EmptyState } from "@/components/v2/empty-state";
-import { CardElev, CardElevBody, CardElevHeader, CardElevTitle, CardElevDescription } from "@/components/v2/card-elev";
-import { CaseStatusBadge, StageStatusBadge } from "@/components/ui/status-badge";
+import { Stamp } from "@/components/v2/stamp";
+import { StageStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { stageLabels, stageBlurbs, progressPercent, formatDateTime } from "@/lib/utils";
+import { requiredStagesForCase } from "@/lib/stages";
 import {
   ArrowRight, ShieldAlert, Fingerprint, MapPin, GraduationCap, Briefcase,
-  FileSearch, Medal, Camera, Video, Inbox, CheckCircle2, Clock, Sparkles, ClipboardCheck,
+  FileSearch, Medal, Camera, Video, Inbox, ClipboardCheck, FileText, Clock, Send,
 } from "lucide-react";
-import { StageType, StageStatus } from "@prisma/client";
+import { StageType, StageStatus, CaseStatus } from "@prisma/client";
 import { FlowFeedback } from "@/components/stage/flow-feedback";
 
-// REFERENCE is intentionally omitted — the reference stage is retired (kept in
-// the Prisma enum only). These maps are keyed by the *active* stage types, so a
-// Partial keeps TS happy without forcing a dead REFERENCE entry.
+// REFERENCE is intentionally omitted — the reference stage is retired.
 const stageIcon: Partial<Record<StageType, React.ReactNode>> = {
   IDENTITY: <Fingerprint />,
   ADDRESS: <MapPin />,
@@ -43,12 +39,48 @@ const stageRoute: Partial<Record<StageType, string>> = {
   VIDEO: "/me/stage/video",
 };
 
+const DONE: StageStatus[] = ["SUBMITTED", "UNDER_REVIEW", "APPROVED"];
+
 function timelineTone(s: StageStatus): TimelineItem["tone"] {
   if (s === "APPROVED") return "success";
   if (s === "REJECTED") return "danger";
   if (s === "NEEDS_CORRECTION") return "warn";
   if (s === "SUBMITTED" || s === "UNDER_REVIEW" || s === "IN_PROGRESS") return "info";
   return "neutral";
+}
+
+const caseStampTone: Record<CaseStatus, "success" | "brand" | "warning" | "danger" | "neutral"> = {
+  DRAFT: "neutral",
+  IN_PROGRESS: "brand",
+  AWAITING_REVIEW: "brand",
+  NEEDS_CORRECTION: "warning",
+  CLEARED: "success",
+  REJECTED: "danger",
+  WITHDRAWN: "neutral",
+};
+
+// Journey node styling per stage state.
+function nodeCls(s: StageStatus): string {
+  switch (s) {
+    case "APPROVED":
+      return "bg-success text-white ring-success/40";
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return "bg-brand/15 text-brand ring-brand/40";
+    case "NEEDS_CORRECTION":
+      return "bg-warning/20 text-warning-foreground ring-warning/50 dark:text-warning";
+    case "REJECTED":
+      return "bg-destructive/15 text-destructive ring-destructive/40";
+    default:
+      return "bg-muted text-muted-foreground ring-border";
+  }
+}
+
+/** Passport-style machine-readable line for the hero card. Decorative. */
+function mrzFor(reference: string, name: string, status: CaseStatus): string {
+  const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, "<");
+  const line = `${clean(reference)}<<${clean(name)}<<BGV<${clean(status)}`;
+  return (line + "<".repeat(64)).slice(0, 64);
 }
 
 export default async function CandidateDashboard({
@@ -58,9 +90,7 @@ export default async function CandidateDashboard({
 }) {
   const session = await requireRole("CANDIDATE");
 
-  // Force temp-password rotation before showing the dashboard. The
-  // change-password page is itself under /me/ but renders OUTSIDE this gate
-  // because that page calls requireRole() but does its own logic.
+  // Force temp-password rotation before showing the dashboard.
   const u = await db.user.findUnique({
     where: { id: session.user.id },
     select: { mustChangePassword: true },
@@ -83,17 +113,20 @@ export default async function CandidateDashboard({
   }
 
   const kase = cand.case;
-  // Only render stages that have an active route (REFERENCE is retired).
-  const stages = kase.stages.filter((s) => stageRoute[s.type]);
-  const approved = stages.filter((s) => s.status === "APPROVED").length;
-  const pending = stages.filter((s) => s.status === "SUBMITTED" || s.status === "UNDER_REVIEW").length;
-  const corrections = stages.filter((s) => s.status === "NEEDS_CORRECTION");
-  const remaining = stages.filter((s) => s.status === "NOT_STARTED" || s.status === "IN_PROGRESS").length;
-  const percent = progressPercent(stages.map((s) => s.status));
+  // Journey order = the case's provisioned required set; stray rows excluded.
+  const required = requiredStagesForCase(kase, kase.stages).filter((t) => stageRoute[t]);
+  const byType = new Map(kase.stages.map((s) => [s.type, s]));
+  const statuses = required.map((t) => byType.get(t)?.status ?? "NOT_STARTED");
+  const approved = statuses.filter((s) => s === "APPROVED").length;
+  const pending = statuses.filter((s) => s === "SUBMITTED" || s === "UNDER_REVIEW").length;
+  const corrections = required.filter((t) => byType.get(t)?.status === "NEEDS_CORRECTION");
+  const percent = progressPercent(statuses);
+  const allSubmitted = statuses.every((s) => DONE.includes(s));
+  const nextStage = required.find((t) => !DONE.includes(byType.get(t)?.status ?? "NOT_STARTED"));
 
   const docCount = await db.document.count({ where: { caseId: kase.id } });
+  const daysActive = Math.max(1, Math.ceil((Date.now() - kase.createdAt.getTime()) / 86_400_000));
 
-  // Reviews on submitted stages for timeline
   const reviewEvents = await db.stageReview.findMany({
     where: { stage: { caseId: kase.id } },
     orderBy: { createdAt: "desc" },
@@ -101,7 +134,12 @@ export default async function CandidateDashboard({
     include: { stage: true, reviewer: true },
   });
 
-  const firstName = cand.legalFirstName ?? cand.user.name?.split(" ")[0] ?? "candidate";
+  const fullName = cand.user.name ?? cand.user.email;
+  const firstName = cand.legalFirstName ?? fullName.split(" ")[0] ?? "candidate";
+
+  // Hero progress ring geometry.
+  const R = 44;
+  const C = 2 * Math.PI * R;
 
   return (
     <div className="space-y-8">
@@ -109,163 +147,222 @@ export default async function CandidateDashboard({
         <FlowFeedback success="Thanks! Your profile has been sent to the BGV team. You'll be notified as it's reviewed." />
       )}
 
-      <SectionHeading
-        as="h1"
-        eyebrow={`Case ${kase.reference}`}
-        title={`Welcome back, ${firstName}`}
-        description={`${cand.positionTitle ?? "Onboarding"} · Start date ${cand.startDate ? new Date(cand.startDate).toLocaleDateString() : "TBD"}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <CaseStatusBadge status={kase.status} />
-            <Button asChild size="sm">
-              <Link href="/me/review">
-                <ClipboardCheck className="h-3.5 w-3.5" /> Review &amp; submit
-              </Link>
-            </Button>
+      {/* ── Case-file hero — fixed navy, both themes ─────────────────────── */}
+      <section className="panel-navy relative overflow-hidden rounded-3xl border border-sidebar-border/60 shadow-xl shadow-primary/10">
+        <div aria-hidden className="dot-grid-light absolute inset-0 opacity-40 [mask-image:radial-gradient(70%_80%_at_30%_0%,#000,transparent)]" />
+        <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.3em] text-sky-300/90">
+                Case {kase.reference}
+              </span>
+              <Stamp tone={caseStampTone[kase.status]} className="bg-slate-950/30">
+                {kase.status.replace(/_/g, " ")}
+              </Stamp>
+            </div>
+            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              Welcome back, {firstName}
+            </h1>
+            <p className="mt-2 text-sm text-slate-300">
+              {cand.positionTitle ?? "Onboarding"} · Start date{" "}
+              {cand.startDate ? new Date(cand.startDate).toLocaleDateString() : "TBD"}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              {allSubmitted ? (
+                <Button variant="brand" asChild>
+                  <Link href="/me/review">
+                    <Send className="h-4 w-4" aria-hidden /> Review &amp; submit profile
+                  </Link>
+                </Button>
+              ) : nextStage ? (
+                <Button variant="brand" asChild>
+                  <Link href={stageRoute[nextStage]!}>
+                    Continue: {stageLabels[nextStage]} <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                </Button>
+              ) : null}
+              <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white" asChild>
+                <Link href="/me/review">
+                  <ClipboardCheck className="h-4 w-4" aria-hidden /> Review profile
+                </Link>
+              </Button>
+            </div>
           </div>
-        }
-      />
 
+          {/* Progress ring */}
+          <div className="flex items-center gap-5 lg:flex-col lg:gap-2 lg:text-center">
+            <div
+              role="progressbar"
+              aria-valuenow={percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Verification progress: ${percent}% approved`}
+              className="relative h-[120px] w-[120px]"
+            >
+              <svg viewBox="0 0 112 112" className="h-full w-full -rotate-90">
+                <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="10" />
+                <circle
+                  cx="56" cy="56" r={R} fill="none"
+                  stroke="hsl(199 89% 57%)" strokeWidth="10" strokeLinecap="round"
+                  strokeDasharray={C} strokeDashoffset={C - (C * percent) / 100}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="font-display text-2xl font-bold text-white">{percent}%</div>
+              </div>
+            </div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-slate-400">
+              {approved}/{required.length} stages approved
+            </div>
+          </div>
+        </div>
+        {/* MRZ footer */}
+        <div className="relative border-t border-dashed border-white/15 px-6 py-2.5 sm:px-8">
+          <div aria-hidden className="mrz text-[10px] text-slate-500">
+            {mrzFor(kase.reference, fullName, kase.status)}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Corrections callout ─────────────────────────────────────────── */}
       {corrections.length > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/20">
-            <ShieldAlert className="h-5 w-5 text-warning-foreground" />
+            <ShieldAlert className="h-5 w-5 text-warning-foreground dark:text-warning" aria-hidden />
           </div>
           <div className="flex-1">
             <div className="text-sm font-semibold">
               {corrections.length} stage{corrections.length > 1 ? "s need" : " needs"} your attention
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {corrections.map((c) => stageLabels[c.type]).join(", ")} — review the feedback and resubmit.
+              {corrections.map((t) => stageLabels[t]).join(", ")} — review the feedback and resubmit.
             </p>
           </div>
           <Button asChild size="sm" variant="warning">
-            <Link href={stageRoute[corrections[0]!.type]!}>
-              Fix now <ArrowRight className="h-3.5 w-3.5" />
+            <Link href={stageRoute[corrections[0]!]!}>
+              Fix now <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </Button>
         </div>
       )}
 
-      {/* KPI row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Progress"
-          value={`${percent}%`}
-          accent="primary"
-          icon={<Sparkles />}
-          hint={`${approved} of ${stages.length} stages approved`}
-        />
-        <StatCard
-          label="In review"
-          value={pending}
-          accent="info"
-          icon={<Clock />}
-          hint="Submitted, awaiting verifier decision"
-        />
-        <StatCard
-          label="Need correction"
-          value={corrections.length}
-          accent={corrections.length > 0 ? "warning" : "neutral"}
-          icon={<ShieldAlert />}
-          hint={corrections.length > 0 ? "Action needed from you" : "All clear right now"}
-        />
-        <StatCard
-          label="Documents"
-          value={docCount}
-          accent="neutral"
-          icon={<FileSearch />}
-          hint="Uploaded to your case"
-        />
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Stages card grid */}
-        <div className="space-y-4 lg:col-span-2">
-          <SectionHeading
-            as="h2"
-            title="Verification stages"
-            description="Click any stage to continue. Each stage is reviewed independently."
-            actions={
-              <div className="hidden items-center gap-2 sm:flex">
-                <ProgressRing value={percent} size={48} stroke={5} label={`${percent}%`} />
-                <div className="text-xs text-muted-foreground">
-                  {approved}/{stages.length} complete
-                </div>
-              </div>
-            }
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {stages.map((s) => {
-              const isCorrection = s.status === "NEEDS_CORRECTION";
-              const isApproved = s.status === "APPROVED";
-              const isPending = s.status === "SUBMITTED" || s.status === "UNDER_REVIEW";
+      {/* ── Journey + side rail ─────────────────────────────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_minmax(300px,340px)]">
+        {/* Verification journey */}
+        <section aria-labelledby="journey-heading" className="rounded-2xl border bg-card/80 backdrop-blur">
+          <div className="flex items-baseline justify-between gap-3 border-b px-5 py-4 sm:px-6">
+            <div>
+              <h2 id="journey-heading" className="font-display text-lg font-semibold">
+                Verification journey
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Complete each checkpoint — every stage is reviewed independently.
+              </p>
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              {approved}/{required.length} done
+            </span>
+          </div>
+          <ol className="px-3 py-3 sm:px-4">
+            {required.map((type, i) => {
+              const stage = byType.get(type);
+              const status: StageStatus = stage?.status ?? "NOT_STARTED";
+              const isCurrent = type === nextStage;
+              const isLast = i === required.length - 1;
               return (
-                <Link
-                  key={s.id}
-                  href={stageRoute[s.type]!}
-                  className={`group relative overflow-hidden rounded-xl border bg-card p-4 transition-all hover:-translate-y-px hover:shadow-md ${
-                    isCorrection ? "border-warning/50 ring-1 ring-warning/30" : "border-border/70 hover:border-primary/30"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset [&>svg]:h-5 [&>svg]:w-5 ${
-                        isApproved
-                          ? "bg-success/10 text-success ring-success/25"
-                          : isCorrection
-                          ? "bg-warning/15 text-warning-foreground ring-warning/35"
-                          : isPending
-                          ? "bg-primary/10 text-primary ring-primary/25"
-                          : "bg-muted text-muted-foreground ring-border"
-                      }`}
+                <li key={type} className="relative">
+                  {/* connector */}
+                  {!isLast && (
+                    <span aria-hidden className="absolute bottom-0 left-[2.45rem] top-12 w-px bg-border" />
+                  )}
+                  <Link
+                    href={stageRoute[type]!}
+                    className={`group relative flex items-center gap-4 rounded-xl px-3 py-3.5 transition-colors hover:bg-accent ${
+                      isCurrent ? "bg-brand/5 ring-1 ring-inset ring-brand/30" : ""
+                    }`}
+                  >
+                    <span
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset [&>svg]:h-5 [&>svg]:w-5 ${nodeCls(status)}`}
+                      aria-hidden
                     >
-                      {stageIcon[s.type]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="text-sm font-semibold">{stageLabels[s.type]}</div>
-                        {isApproved && <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
-                      </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{stageBlurbs[s.type]}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <StageStatusBadge status={s.status} />
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+                      {stageIcon[type]}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2">
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="text-sm font-semibold">{stageLabels[type]}</span>
+                        {isCurrent && (
+                          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-brand">
+                            ← next up
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        {stageBlurbs[type]}
+                      </span>
+                    </span>
+                    <StageStatusBadge status={status} />
+                    <ArrowRight
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                    />
+                  </Link>
+                </li>
               );
             })}
-          </div>
-        </div>
+          </ol>
+        </section>
 
-        {/* Activity timeline */}
-        <CardElev>
-          <CardElevHeader>
-            <CardElevTitle>Recent activity</CardElevTitle>
-            <CardElevDescription>Latest updates on your case</CardElevDescription>
-          </CardElevHeader>
-          <CardElevBody>
-            {reviewEvents.length === 0 ? (
-              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                Submit a stage to start the verification journey.
+        {/* Side rail */}
+        <div className="space-y-6">
+          {/* Compact stats */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "In review", value: pending, icon: <Clock /> },
+              { label: "Corrections", value: corrections.length, icon: <ShieldAlert /> },
+              { label: "Documents", value: docCount, icon: <FileText /> },
+              { label: "Days active", value: daysActive, icon: <ClipboardCheck /> },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl border bg-card/80 p-4 backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+                    {s.label}
+                  </span>
+                  <span aria-hidden className="text-brand [&>svg]:h-3.5 [&>svg]:w-3.5">{s.icon}</span>
+                </div>
+                <div className="tabnum mt-2 font-display text-2xl font-bold">{s.value}</div>
               </div>
-            ) : (
-              <Timeline
-                items={reviewEvents.slice(0, 6).map((r, idx) => ({
-                  id: r.id,
-                  title: `${stageLabels[r.stage.type]} ${r.decision === "APPROVED" ? "approved" : r.decision === "REJECTED" ? "rejected" : "correction requested"}`,
-                  description: r.comment ?? undefined,
-                  timestamp: formatDateTime(r.createdAt),
-                  tone: timelineTone(r.decision),
-                  current: idx === 0,
-                }))}
-              />
-            )}
-          </CardElevBody>
-        </CardElev>
+            ))}
+          </div>
+
+          {/* Recent activity */}
+          <section aria-labelledby="activity-heading" className="rounded-2xl border bg-card/80 backdrop-blur">
+            <div className="border-b px-5 py-4">
+              <h2 id="activity-heading" className="font-display text-lg font-semibold">Recent activity</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">Latest updates on your case</p>
+            </div>
+            <div className="p-5">
+              {reviewEvents.length === 0 ? (
+                <div className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                  Submit a stage to start the verification journey.
+                </div>
+              ) : (
+                <Timeline
+                  items={reviewEvents.slice(0, 6).map((r, idx) => ({
+                    id: r.id,
+                    title: `${stageLabels[r.stage.type]} ${r.decision === "APPROVED" ? "approved" : r.decision === "REJECTED" ? "rejected" : "correction requested"}`,
+                    description: r.comment ?? undefined,
+                    timestamp: formatDateTime(r.createdAt),
+                    tone: timelineTone(r.decision),
+                    current: idx === 0,
+                  }))}
+                />
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

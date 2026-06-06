@@ -19,7 +19,8 @@ import {
   StageType,
   type Prisma,
 } from "@prisma/client";
-import { stagesForCandidateType } from "@/lib/stages";
+import { RETIRED_STAGE_TYPES, stagesForCandidateType } from "@/lib/stages";
+import { isUniqueViolation, withUniqueCaseReference } from "@/lib/case-reference";
 import { db } from "@/lib/db";
 import { notifyBgvTeam } from "@/server/notify";
 import { env } from "@/lib/env";
@@ -94,7 +95,17 @@ function validatePayload(
         return { ok: false, error: `requiredStages contains invalid value: ${String(s)}` };
       }
     }
-    requiredStages = o.requiredStages as StageType[];
+    // Drop retired types (REFERENCE) rather than rejecting the handoff: a
+    // required stage with no submittable UI permanently blocks the case from
+    // CLEARED, and failing the whole webhook would block the candidate instead.
+    const active = (o.requiredStages as StageType[]).filter((s) => !RETIRED_STAGE_TYPES.has(s));
+    if (active.length < o.requiredStages.length) {
+      logger.warn("portal_webhook.retired_stages_dropped", {
+        dropped: (o.requiredStages as StageType[]).filter((s) => RETIRED_STAGE_TYPES.has(s)),
+      });
+    }
+    // An all-retired list falls back to the candidate-type derivation below.
+    requiredStages = active.length > 0 ? active : null;
   }
 
   // Optional fields — accept string | null | undefined; normalize.
@@ -153,35 +164,6 @@ function splitName(fullName: string): { first: string; middle: string | null; la
 function mapCandidateType(t: PortalCandidateType): CandidateType {
   // Portal sends EMPLOYEE | INTERN; Launchpad's enum is INTERN | CANDIDATE | TRAINER | CONTRACTOR.
   return t === "INTERN" ? CandidateType.INTERN : CandidateType.CANDIDATE;
-}
-
-async function generateReference(): Promise<string> {
-  // LP-YYYY-NNNN, derived from the HIGHEST existing reference for the year — NOT count().
-  // count()+1 collides with an existing reference the moment any case is deleted (the count
-  // drops below the max), which 500'd recreate/handoff. Residual collisions (e.g. concurrent
-  // creates) are handled by bumpReference()+retry at the create call site.
-  const year = new Date().getFullYear();
-  const prefix = `LP-${year}-`;
-  const last = await db.case.findFirst({
-    where: { reference: { startsWith: prefix } },
-    orderBy: { reference: "desc" },
-    select: { reference: true },
-  });
-  let next = 1;
-  if (last?.reference) {
-    const n = parseInt(last.reference.slice(prefix.length), 10);
-    if (Number.isFinite(n)) next = n + 1;
-  }
-  return `${prefix}${String(next).padStart(4, "0")}`;
-}
-
-/** Increment the numeric suffix of an LP-YYYY-NNNN reference (collision retry). */
-function bumpReference(ref: string): string {
-  const m = ref.match(/^(LP-\d{4}-)(\d+)$/);
-  if (!m) return `${ref}-1`;
-  const prefix = m[1] ?? "";
-  const num = parseInt(m[2] ?? "0", 10);
-  return `${prefix}${String(num + 1).padStart(4, "0")}`;
 }
 
 // ─────────────────────────────── Handler ───────────────────────────────────
@@ -426,12 +408,13 @@ export async function POST(req: NextRequest) {
     data.requiredStages && data.requiredStages.length > 0
       ? data.requiredStages
       : stagesForCandidateType(mapCandidateType(data.candidateType));
-  let reference = await generateReference();
-
   let kase;
-  for (let attempt = 0; attempt < 6; attempt++) {
-    try {
-      kase = await db.case.create({
+  try {
+    // Reference collisions (legacy count()-based refs, deletions, concurrent
+    // creates) are bumped + retried inside the helper instead of 500'ing
+    // (this is the bug that broke recreate + handoff).
+    kase = await withUniqueCaseReference((reference) =>
+      db.case.create({
         data: {
           reference,
           candidateId: candidate.id,
@@ -439,59 +422,42 @@ export async function POST(req: NextRequest) {
           portalCandidateKind: data.candidateRef.kind,
           portalCandidateId: data.candidateRef.id,
         },
+      }),
+    );
+  } catch (e) {
+    // Genuine redelivered/concurrent webhook for the SAME candidate: the @@unique on
+    // (portalCandidateKind, portalCandidateId) or candidateId rejects the dup — resolve to
+    // the already-created case instead of erroring.
+    if (isUniqueViolation(e)) {
+      const raced = await db.case.findFirst({
+        where: {
+          OR: [
+            {
+              portalCandidateKind: data.candidateRef.kind,
+              portalCandidateId: data.candidateRef.id,
+            },
+            { candidateId: candidate.id },
+          ],
+        },
+        select: { id: true, reference: true },
       });
-      break;
-    } catch (e) {
-      const code = (e && typeof e === "object" && (e as { code?: string }).code) || "";
-      const rawTarget =
-        (e && typeof e === "object" && (e as { meta?: { target?: unknown } }).meta?.target) || [];
-      const target = Array.isArray(rawTarget) ? rawTarget.join(",") : String(rawTarget);
-
-      // (a) The reference itself collided — legacy count()-based refs, deletions, or a
-      // concurrent create can produce an already-used LP-YYYY-NNNN. Bump to the next
-      // number and retry instead of 500'ing (this is the bug that broke recreate + handoff).
-      if (code === "P2002" && target.includes("reference") && attempt < 5) {
-        reference = bumpReference(reference);
-        continue;
-      }
-
-      // (b) Genuine redelivered/concurrent webhook for the SAME candidate: the @@unique on
-      // (portalCandidateKind, portalCandidateId) or candidateId rejects the dup — resolve to
-      // the already-created case instead of erroring.
-      if (code === "P2002") {
-        const raced = await db.case.findFirst({
-          where: {
-            OR: [
-              {
-                portalCandidateKind: data.candidateRef.kind,
-                portalCandidateId: data.candidateRef.id,
-              },
-              { candidateId: candidate.id },
-            ],
-          },
-          select: { id: true, reference: true },
+      if (raced) {
+        const magicLink = await issueMagicLink(user.email);
+        logger.info("portal_webhook.create_race_resolved", {
+          deliveryId,
+          caseId: raced.id,
+          reference: raced.reference,
         });
-        if (raced) {
-          const magicLink = await issueMagicLink(user.email);
-          logger.info("portal_webhook.create_race_resolved", {
-            deliveryId,
-            caseId: raced.id,
-            reference: raced.reference,
-          });
-          return NextResponse.json({
-            ok: true,
-            caseId: raced.id,
-            reference: raced.reference,
-            magicLink,
-            action: "existing",
-          });
-        }
+        return NextResponse.json({
+          ok: true,
+          caseId: raced.id,
+          reference: raced.reference,
+          magicLink,
+          action: "existing",
+        });
       }
-      throw e;
     }
-  }
-  if (!kase) {
-    throw new Error(`could not allocate a unique case reference after retries (last tried ${reference})`);
+    throw e;
   }
 
   for (const t of stages) {

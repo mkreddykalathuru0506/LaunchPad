@@ -70,20 +70,23 @@ function EducationBlock({
   const savedTranscript = draft?.files[`edu_${i}_transcript`];
   const savedDegree = draft?.files[`edu_${i}_degreeDoc`];
   return (
-    <div className="rounded-lg border p-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+    <section className="rounded-2xl border border-dashed p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <span aria-hidden className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-brand/10 text-brand">
             <GraduationCap className="h-4 w-4" />
           </span>
           <div>
-            <div className="text-sm font-semibold">{title} {isRequired && <span className="text-destructive">*</span>}</div>
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              Entry {String(i + 1).padStart(2, "0")}
+            </span>
+            <div className="font-display text-sm font-semibold">{title} {isRequired && <span className="text-destructive">*</span>}</div>
             {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
           </div>
         </div>
         {!isRequired && onRemove && (
           <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label="Remove">
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
       </div>
@@ -125,18 +128,22 @@ function EducationBlock({
         <FileField name={`edu_${i}_degreeDoc`} label={`${level === "SSC" || level === "Intermediate" ? "Passing certificate" : "Provisional / Degree certificate"} (optional)`} accept="image/*,.pdf"
           hint={savedDegree ? `Saved: ${savedDegree.filename}. Re-select to replace.` : "Optional. PDF, JPG, or PNG. Max 20 MB."} />
       </FieldGrid>
-    </div>
+    </section>
   );
 }
 
 export function EducationForm({ initial }: { initial?: EducationDraft }) {
-  // Restore any optional levels (index >= the 3 required) that were saved in a draft.
-  const restoredExtras: LevelKey[] = [];
-  for (let i = REQUIRED_LEVELS.length; ; i++) {
-    const lvl = initial?.fields[`edu_${i}_level`];
-    if (!lvl) break;
-    restoredExtras.push(lvl as LevelKey);
-  }
+  // Restore any optional levels (index >= the 3 required) that were saved.
+  // Scan every saved level key rather than walking sequentially — a gap must
+  // not truncate the restore and drop later rows.
+  const restoredExtras: LevelKey[] = Object.entries(initial?.fields ?? {})
+    .flatMap(([k, v]) => {
+      const m = k.match(/^edu_(\d+)_level$/);
+      return m ? [[Number(m[1]), v] as const] : [];
+    })
+    .filter(([i]) => i >= REQUIRED_LEVELS.length)
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => v as LevelKey);
   const [extras, setExtras] = useState<LevelKey[]>(restoredExtras);
 
   const addExtra = (lvl: LevelKey) => setExtras((cur) => [...cur, lvl]);
@@ -145,13 +152,21 @@ export function EducationForm({ initial }: { initial?: EducationDraft }) {
 
   return (
     <form action={submitEducationStage} className="space-y-6">
-      <div className="rounded-md border border-primary/30 bg-accent/40 p-3 text-sm">
-        <div className="font-medium">India education verification</div>
-        <p className="mt-0.5 text-muted-foreground">
+      {/* Verification scope — info dossier card. */}
+      <section className="rounded-2xl border border-dashed border-brand/40 bg-accent/30 p-4">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand/10 text-brand [&>svg]:h-3.5 [&>svg]:w-3.5">
+            <GraduationCap />
+          </span>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            India Education Verification
+          </span>
+        </div>
+        <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
           SSC (10th), Intermediate (12th), and Degree details are mandatory. Uploading the
           marksheet and the passing/degree certificate is optional.
         </p>
-      </div>
+      </section>
 
       {REQUIRED_LEVELS.map((l, idx) => (
         <EducationBlock
@@ -189,11 +204,13 @@ export function EducationForm({ initial }: { initial?: EducationDraft }) {
         );
       })}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3">
-        <span className="text-sm text-muted-foreground">Add another qualification:</span>
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed p-4">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          Add Another Qualification
+        </span>
         {OPTIONAL_LEVELS.map((o) => (
           <Button key={o.key} type="button" variant="outline" size="sm" onClick={() => addExtra(o.key)}>
-            <Plus className="h-3.5 w-3.5" /> {o.title}
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {o.title}
           </Button>
         ))}
       </div>

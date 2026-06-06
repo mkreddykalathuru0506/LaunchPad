@@ -58,12 +58,12 @@ export function FlowFeedback({ error, success }: { error?: string; success?: str
           <DialogTitle className="flex items-center gap-2">
             {variant === "error" ? (
               <>
-                <AlertCircle className="h-5 w-5 text-destructive" />
+                <AlertCircle className="h-5 w-5 text-destructive" aria-hidden="true" />
                 Couldn&apos;t submit — please fix
               </>
             ) : (
               <>
-                <CheckCircle2 className="h-5 w-5 text-success" />
+                <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
                 Profile submitted for BGV
               </>
             )}

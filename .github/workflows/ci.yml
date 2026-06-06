@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# GitHub forces JS actions onto Node 24 from 2026-06-16; opt in now so the
+# switch can't surprise us (checkout@v4 / setup-node@v4 are Node-24-ready).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     name: Typecheck + build
@@ -16,7 +21,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22 = active LTS; ships npm 10, same major the lockfile is verified
+          # against (see the @auth/core nodemailer override).
+          node-version: 22
           cache: npm
 
       - run: npm ci --no-audit --no-fund

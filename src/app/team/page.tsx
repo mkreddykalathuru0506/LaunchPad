@@ -46,7 +46,7 @@ export default async function TeamOverview() {
         description="Throughput, queue health, and verifier load at a glance."
         actions={
           <Button asChild>
-            <Link href="/team/new"><UserPlus className="h-4 w-4" /> New case</Link>
+            <Link href="/team/new"><UserPlus aria-hidden="true" className="h-4 w-4" /> New case</Link>
           </Button>
         }
       />
@@ -78,18 +78,18 @@ export default async function TeamOverview() {
                       <div className="flex items-baseline justify-between gap-2">
                         <div className="truncate text-sm font-semibold">{v.name ?? v.email}</div>
                         <div className="tabnum shrink-0 text-xs text-muted-foreground">
-                          <span className={isOver ? "text-warning-foreground" : "text-foreground"}>{open}</span> open · {total} total
+                          <span className={isOver ? "text-warning-foreground dark:text-warning" : "text-foreground"}>{open}</span> open · {total} total
                         </div>
                       </div>
                       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                         <div
-                          className={`h-full rounded-full ${isOver ? "bg-warning" : "bg-primary"}`}
+                          className={`h-full rounded-full ${isOver ? "bg-warning" : "bg-brand"}`}
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
                     </div>
                     {isOver && (
-                      <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-foreground">
+                      <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-foreground dark:text-warning">
                         Over capacity
                       </span>
                     )}
@@ -138,13 +138,13 @@ export default async function TeamOverview() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="truncate text-sm font-medium">{c.candidate.user.name ?? c.candidate.user.email}</span>
-                        <span className="tabnum font-mono text-[10px] text-primary">{c.reference}</span>
+                        <span className="tabnum font-mono text-[10px] text-brand">{c.reference}</span>
                       </div>
                       <div className="mt-0.5 flex items-center gap-2">
                         <CaseStatusBadge status={c.status} />
                       </div>
                     </div>
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>
               ))}
