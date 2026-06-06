@@ -13,6 +13,8 @@ COPY prisma ./prisma
 # seed.ts imports the shared stage-selection helper from src/lib, so the seed
 # needs src on disk (tsx resolves ../src/lib/stages at runtime).
 COPY src ./src
+# One-time data-migration scripts (e.g. the legacy PII re-seal) run from here.
+COPY scripts ./scripts
 RUN npm ci --no-audit --no-fund
 
 # Generate the client + the seed runner needs tsx
