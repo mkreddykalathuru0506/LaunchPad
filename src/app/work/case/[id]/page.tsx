@@ -13,7 +13,16 @@ import { StageReviewForm } from "./stage-review-form";
 import { ManagerActions } from "./manager-actions";
 import { ArrowLeft, FileDown, FileText, MapPin, GraduationCap, Briefcase, Users, Medal } from "lucide-react";
 import { db } from "@/lib/db";
-import { decryptString } from "@/lib/crypto";
+import { maskTail } from "@/lib/crypto";
+
+/** Small "this field is sealed" chip for masked PII rows. */
+function EncryptedChip() {
+  return (
+    <span className="rounded bg-success/10 px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider text-success">
+      ENCRYPTED
+    </span>
+  );
+}
 
 export default async function CaseDetail({ params }: { params: { id: string } }) {
   const session = await requireRole(["VERIFIER", "MANAGER", "ADMIN"]);
@@ -24,7 +33,19 @@ export default async function CaseDetail({ params }: { params: { id: string } })
     ? await db.user.findMany({ where: { role: "VERIFIER", active: true }, orderBy: { name: "asc" } })
     : [];
 
-  const dob = decryptString(kase.candidate.dobEncrypted);
+  // Zero-knowledge for staff: DOB and ID numbers are NEVER decrypted for
+  // display — not for verifiers, managers, or admins. Verification happens
+  // against the uploaded document image; the UI shows masked tails only.
+  const idPayload = (kase.stages.find((s) => s.type === "IDENTITY")?.payload ?? {}) as {
+    documentType?: string;
+    documentNumberLast4?: string;
+    documentNumber?: string; // legacy plaintext rows — masked, never rendered in full
+  };
+  const idNumberMasked = idPayload.documentNumberLast4
+    ? `••••${idPayload.documentNumberLast4}`
+    : idPayload.documentNumber
+      ? maskTail(idPayload.documentNumber)
+      : null;
   const audits = await db.auditEvent.findMany({
     where: { caseId: kase.id },
     orderBy: { createdAt: "desc" },
@@ -111,7 +132,31 @@ export default async function CaseDetail({ params }: { params: { id: string } })
                 <CardHeader><CardTitle className="text-base">Identity</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
                   <Field k="Legal name" v={`${kase.candidate.legalFirstName ?? ""} ${kase.candidate.legalMiddleName ?? ""} ${kase.candidate.legalLastName ?? ""}`.trim() || "—"} />
-                  <Field k="Date of birth" v={dob ?? "—"} />
+                  <Field
+                    k="Date of birth"
+                    v={
+                      <span className="inline-flex items-center gap-2">
+                        <span className="font-mono tracking-wider">••-••-••••</span>
+                        <EncryptedChip />
+                      </span>
+                    }
+                  />
+                  <Field
+                    k="ID document"
+                    v={
+                      idPayload.documentType ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span>
+                            {idPayload.documentType} ·{" "}
+                            <span className="font-mono tracking-wider">{idNumberMasked ?? "—"}</span>
+                          </span>
+                          <EncryptedChip />
+                        </span>
+                      ) : (
+                        "—"
+                      )
+                    }
+                  />
                   <Field k="Nationality" v={kase.candidate.nationality ?? "—"} />
                   <Field k="Phone" v={kase.candidate.phone ?? "—"} />
                 </CardContent>

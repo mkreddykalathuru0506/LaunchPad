@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getCaseForCandidate } from "@/server/queries/case";
 import { submitProfileForBgv } from "@/server/actions/stage";
 import { requiredStagesForCase } from "@/lib/stages";
+import { maskTail } from "@/lib/crypto";
 import { stageLabels, formatDate } from "@/lib/utils";
 import { SectionHeading } from "@/components/v2/section-heading";
 import {
@@ -177,9 +178,20 @@ function StageSummary({
   switch (type) {
     case "IDENTITY": {
       const name = [cand.legalFirstName, cand.legalMiddleName, cand.legalLastName].filter(Boolean).join(" ");
+      // Sensitive identifiers render masked even for the candidate — the full
+      // number lives only as ciphertext (documentNumberEncrypted).
+      const p = (stage?.payload ?? {}) as { documentType?: string; documentNumberLast4?: string; documentNumber?: string };
+      const idMasked = p.documentNumberLast4
+        ? `••••${p.documentNumberLast4}`
+        : p.documentNumber
+          ? maskTail(p.documentNumber)
+          : null;
       return (
         <Rows>
           <Row k="Legal name" v={name || "—"} />
+          {p.documentType && (
+            <Row k="ID document" v={`${p.documentType} · ${idMasked ?? "—"}`} />
+          )}
           <Row k="Nationality" v={cand.nationality ?? "—"} />
           <Row k="Phone" v={cand.phone ?? "—"} />
         </Rows>
@@ -247,10 +259,14 @@ function StageSummary({
     }
     default: {
       // CRIMINAL / PHOTO / VIDEO — render primitive payload values, else status.
+      // Guard: never surface ciphertext or raw sensitive identifiers, whatever
+      // payload shape a stage stores.
       const payload = (stage?.payload ?? {}) as unknown as Record<string, unknown>;
       const entries = Object.entries(payload).filter(
         ([k, val]) =>
           k !== "__draft" &&
+          !k.endsWith("Encrypted") &&
+          k !== "documentNumber" &&
           (typeof val === "string" || typeof val === "number" || typeof val === "boolean") &&
           String(val).length > 0,
       );

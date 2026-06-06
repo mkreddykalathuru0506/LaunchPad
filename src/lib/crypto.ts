@@ -38,6 +38,16 @@ export function sha256Hex(buf: Buffer | string): string {
   return createHash("sha256").update(buf).digest("hex");
 }
 
+/**
+ * Display-safe mask for sensitive identifiers: bullets + the last `visible`
+ * characters ("••••4821"). Staff UIs must NEVER render the full value — use
+ * this even for legacy plaintext so nothing leaks while it awaits migration.
+ */
+export function maskTail(value: string | null | undefined, visible = 4): string {
+  if (!value) return "—";
+  return `••••${value.slice(-visible)}`;
+}
+
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString("base64url");
 }

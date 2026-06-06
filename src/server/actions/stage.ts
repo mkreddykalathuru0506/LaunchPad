@@ -327,9 +327,13 @@ async function submitIdentityStageImpl(formData: FormData) {
 
   // Replacing the payload wholesale also clears __draft, so the next edit
   // prefills from the real submitted values instead of a stale draft.
+  // The document number is stored as AES-256-GCM ciphertext + a display-safe
+  // last-4 tail ONLY — no plaintext at rest, and staff UIs (verifier, manager,
+  // admin alike) render the masked tail, never the full number.
   const stage = await upsertStage(kase.id, "IDENTITY", "SUBMITTED", {
     documentType: parsed.documentType,
-    documentNumber: parsed.documentNumber,
+    documentNumberEncrypted: encryptString(parsed.documentNumber),
+    documentNumberLast4: parsed.documentNumber.slice(-4),
   });
 
   // Link the draft-stored upload (from this POST or an earlier Save draft) to
