@@ -39,9 +39,25 @@ function groupItems(items: SidebarNavItem[]): GroupedItems {
   return groups;
 }
 
-function isActive(pathname: string, href: string): boolean {
+function matches(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
+}
+
+/**
+ * Exactly ONE tile highlights: the most specific matching href. Plain prefix
+ * matching lit several tiles at once (/admin/users highlighted both
+ * "Overview" (/admin) and "Users"), which read as services overriding
+ * each other.
+ */
+function activeHrefFor(pathname: string, items: SidebarNavItem[]): string | null {
+  let best: string | null = null;
+  for (const item of items) {
+    if (matches(pathname, item.href) && (best === null || item.href.length > best.length)) {
+      best = item.href;
+    }
+  }
+  return best;
 }
 
 // ─── Light service-grid sidebar ──────────────────────────────────────────────
@@ -56,6 +72,7 @@ function SidebarContent({
 }: SidebarProps & { onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
   const groups = React.useMemo(() => groupItems(items), [items]);
+  const activeHref = React.useMemo(() => activeHrefFor(pathname, items), [pathname, items]);
 
   return (
     <div className="flex h-full flex-col bg-card text-foreground">
@@ -82,7 +99,7 @@ function SidebarContent({
             )}
             <ul className="grid grid-cols-2 gap-2">
               {group.items.map((item) => {
-                const active = isActive(pathname, item.href);
+                const active = item.href === activeHref;
                 return (
                   <li key={item.href}>
                     <Link
