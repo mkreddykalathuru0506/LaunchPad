@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -10,6 +11,8 @@ import { CaseStatusBadge, StageStatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox, Clock, ShieldAlert, Briefcase, ChevronRight } from "lucide-react";
 import { formatDateTime, stageLabels } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "My queue" };
 
 export default async function VerifierQueue() {
   const session = await requireRole(["VERIFIER", "MANAGER", "ADMIN"]);

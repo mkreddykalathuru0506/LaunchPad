@@ -24,10 +24,17 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Launch Pad — Background Verification",
+  title: {
+    template: "%s — Launch Pad",
+    default: "Launch Pad — Background Verification",
+  },
   description: "Multi-stage onboarding and background verification platform for ElvixIT.",
   applicationName: "Launch Pad",
   robots: "noindex, nofollow",
+  // The browser-tab / home-screen icons are supplied via the App-Router file
+  // convention: src/app/icon.png (mark-only favicon) and src/app/apple-icon.png
+  // (180px apple-touch). Next auto-emits the <link rel="icon"> tags, so no
+  // manual `icons` block — and no dangling /favicon.ico reference — is needed.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

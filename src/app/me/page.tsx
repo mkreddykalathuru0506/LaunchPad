@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { getCaseForCandidate } from "@/server/queries/case";
@@ -82,6 +83,8 @@ function mrzFor(reference: string, name: string, status: CaseStatus): string {
   const line = `${clean(reference)}<<${clean(name)}<<BGV<${clean(status)}`;
   return (line + "<".repeat(64)).slice(0, 64);
 }
+
+export const metadata: Metadata = { title: "My verification" };
 
 export default async function CandidateDashboard({
   searchParams,

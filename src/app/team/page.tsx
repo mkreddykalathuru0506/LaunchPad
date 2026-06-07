@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/session";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { ProgressRing } from "@/components/v2/progress-ring";
 import { ArrowRight, UserPlus, Users, CheckCircle2, Inbox, AlertTriangle } from "lucide-react";
 import { getRecentActivity } from "@/server/queries/activity";
+
+export const metadata: Metadata = { title: "Team" };
 
 export default async function TeamOverview() {
   const session = await requireRole(["MANAGER", "ADMIN"]);

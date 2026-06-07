@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
@@ -22,6 +23,15 @@ function EncryptedChip() {
       ENCRYPTED
     </span>
   );
+}
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  // Lightweight lookup — only the reference is needed for the tab title.
+  const kase = await db.case.findUnique({
+    where: { id: params.id },
+    select: { reference: true },
+  });
+  return { title: kase ? `Case ${kase.reference}` : "Case file" };
 }
 
 export default async function CaseDetail({ params }: { params: { id: string } }) {

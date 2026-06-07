@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
 import { getNotificationsForUser } from "@/server/queries/notifications";
@@ -44,6 +45,8 @@ function groupByDate(items: NotificationRow[]) {
 }
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const session = await requireSession();
