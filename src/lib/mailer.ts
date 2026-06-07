@@ -12,6 +12,8 @@ export type Mail = {
   text?: string;
   templateId?: string;
   caseId?: string;
+  /** Binary attachments (e.g. the clearance PDF returned to a requesting company). */
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 };
 
 export interface MailerAdapter {
@@ -29,13 +31,20 @@ class FilesystemMailer implements MailerAdapter {
   async send(mail: Mail) {
     const dir = "./outbox";
     const filename = `${Date.now()}-${mail.to.replace(/[^a-z0-9.@_-]/gi, "_")}.eml`;
+    // Dev driver: note attachments in the body rather than building MIME parts.
+    const attachmentNote = mail.attachments?.length
+      ? `<hr/><p>[dev outbox] Attachments: ${mail.attachments
+          .map((a) => `${a.filename} (${Math.ceil(a.content.length / 1024)} KB)`)
+          .join(", ")}</p>`
+      : "";
     const content =
       `From: ${env.MAILER_FROM}\r\n` +
       `To: ${mail.to}\r\n` +
       `Subject: ${mail.subject}\r\n` +
       `Content-Type: text/html; charset=utf-8\r\n` +
       `Date: ${new Date().toUTCString()}\r\n\r\n` +
-      mail.html;
+      mail.html +
+      attachmentNote;
     // Don't let a bad outbox permission take down the email-send pipeline —
     // we still want the EmailLog row (with bodyHtml) for traceability.
     try {
@@ -85,6 +94,11 @@ class SmtpMailer implements MailerAdapter {
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
+        attachments: mail.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
       });
       logger.info("email.smtp", {
         to: mail.to,
@@ -121,6 +135,10 @@ class ResendMailer implements MailerAdapter {
           subject: mail.subject,
           html: mail.html,
           text: mail.text,
+          attachments: mail.attachments?.map((a) => ({
+            filename: a.filename,
+            content: a.content.toString("base64"),
+          })),
         }),
       });
       if (!res.ok) return { ok: false, error: `Resend ${res.status}` };

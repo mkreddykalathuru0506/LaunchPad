@@ -12,6 +12,7 @@ import { generateClearedReport } from "@/server/pdf/cleared-report";
 import {
   emailCandidateCleared, emailCandidateRejected, emailStageCorrection,
   emailStageDecided, emailCandidateAssigned, emailVerifierAssigned,
+  emailCompanyResult,
 } from "@/server/emails";
 import { notifyPortalCaseStatus } from "@/server/portal-webhook";
 
@@ -164,6 +165,9 @@ export async function decideStage(formData: FormData) {
       reason: parsed.comment,
       caseId: stage.caseId,
     });
+    // Non-listed requesting company gets the result by email (portal-linked
+    // cases already get the webhook callback from recomputeCase).
+    await emailCompanyResult({ caseId: stage.caseId, status: "REJECTED" });
     await audit({ actorId: session.user.id, caseId: stage.caseId, action: "case.rejected" });
   }
 
@@ -242,7 +246,10 @@ export async function issueClearance(caseId: string, actorId: string) {
     }
     await audit({ actorId, caseId, action: "case.cleared" });
   }
-  // Manual / report-driven clearance also notifies the portal.
+  // Return the result to the requesting company: non-listed companies get the
+  // status + signed clearance report by email…
+  await emailCompanyResult({ caseId, status: "CLEARED" });
+  // …while portal-linked (listed) cases get the webhook callback.
   void notifyPortalCaseStatus(caseId, "CLEARED");
 }
 

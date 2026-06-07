@@ -2,6 +2,7 @@
 // should call one of these — keeps templates, audit, and DB writes consistent.
 
 import { db } from "@/lib/db";
+import { storage } from "@/lib/storage";
 import { sendMail } from "@/lib/mailer";
 import { tpl } from "@/lib/email-templates";
 import { env } from "@/lib/env";
@@ -158,6 +159,62 @@ export async function emailProfileSubmittedForBgv(opts: { caseId: string }): Pro
     templateId: "profile.submitted.bgv",
     caseId: c.id,
   });
+}
+
+// ───────────────────────── Requesting-company results ───────────────────────
+
+/**
+ * Return the verification RESULT to a non-listed requesting company by email
+ * (listed/portal companies get the webhook callback instead — see
+ * notifyPortalCaseStatus). CLEARED attaches the signed clearance PDF; REJECTED
+ * sends status only. No-op when the case has no resultEmail.
+ */
+export async function emailCompanyResult(opts: {
+  caseId: string;
+  status: "CLEARED" | "REJECTED";
+}): Promise<void> {
+  const c = await db.case.findUnique({
+    where: { id: opts.caseId },
+    include: { candidate: { include: { user: true } } },
+  });
+  if (!c?.resultEmail) return;
+
+  const candidateName = c.candidate.user.name ?? c.candidate.user.email;
+  const company = c.companyName ?? "your company";
+  const appSuffix = c.appName ? ` · ${c.appName}` : "";
+
+  let attachments: { filename: string; content: Buffer; contentType?: string }[] | undefined;
+  if (opts.status === "CLEARED" && c.clearedReportPath) {
+    try {
+      attachments = [
+        {
+          filename: `clearance-${c.reference}.pdf`,
+          content: await storage.read(c.clearedReportPath),
+          contentType: "application/pdf",
+        },
+      ];
+    } catch (e) {
+      logger.error("email.company_result.report_read_failed", {
+        caseId: c.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  const cleared = opts.status === "CLEARED";
+  await safeSend({
+    to: c.resultEmail,
+    subject: `Background verification ${cleared ? "cleared" : "not cleared"} — ${candidateName} (${c.reference})`,
+    html: `<p>Hello ${company},</p>
+           <p>The background verification you requested for <b>${candidateName}</b>${appSuffix} (case <b>${c.reference}</b>) has been completed with the result: <b>${cleared ? "CLEARED" : "NOT CLEARED"}</b>.</p>
+           ${cleared && attachments ? "<p>The signed clearance report is attached.</p>" : ""}
+           ${!cleared ? "<p>For details about this outcome, please contact the ElvixIT BGV team by replying to this email.</p>" : ""}
+           <p>— ElvixIT Background Verification</p>`,
+    templateId: cleared ? "company.result.cleared" : "company.result.rejected",
+    caseId: c.id,
+    attachments,
+  });
+  await audit({ caseId: c.id, action: "company.result.sent", metadata: { to: c.resultEmail, status: opts.status } });
 }
 
 // ───────────────────────── External outreach ─────────────────────────────────

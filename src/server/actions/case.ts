@@ -17,6 +17,12 @@ const createSchema = z.object({
   startDate: z.string().optional(),
   requireVeteran: z.string().optional(),
   assignedVerifierId: z.string().optional(),
+  // Requesting-company filter: listed = ElvixIT portal integration (results
+  // pushed back automatically); unlisted = manual, results emailed back.
+  companySource: z.enum(["listed", "unlisted"]).default("unlisted"),
+  companyName: z.string().max(120).optional(),
+  appName: z.string().max(120).optional(),
+  resultEmail: z.string().email().optional(),
 });
 
 export async function createCase(formData: FormData) {
@@ -30,7 +36,21 @@ export async function createCase(formData: FormData) {
     startDate: formData.get("startDate")?.toString() || undefined,
     requireVeteran: formData.get("requireVeteran")?.toString() || undefined,
     assignedVerifierId: formData.get("assignedVerifierId")?.toString() || undefined,
+    companySource: formData.get("companySource")?.toString() || undefined,
+    companyName: formData.get("companyName")?.toString().trim() || undefined,
+    appName: formData.get("appName")?.toString().trim() || undefined,
+    resultEmail: formData.get("resultEmail")?.toString().trim() || undefined,
   });
+
+  // Listed = the ElvixIT portal integration: company is fixed and results
+  // return via the portal callback. Non-listed must say who to email back.
+  const listed = parsed.companySource === "listed";
+  if (!listed && !parsed.companyName) {
+    throw new Error("Company name is required for a non-listed company.");
+  }
+  if (!listed && !parsed.resultEmail) {
+    throw new Error("Result email is required for a non-listed company (status + report are sent there).");
+  }
 
   const { user, kase, tempPassword } = await provisionCandidateCase({
     email: parsed.email,
@@ -42,6 +62,9 @@ export async function createCase(formData: FormData) {
     requireVeteran: parsed.requireVeteran === "on",
     assignedVerifierId: parsed.assignedVerifierId ?? null,
     managedById: session.user.id,
+    companyName: listed ? "ElvixIT" : parsed.companyName!,
+    appName: parsed.appName ?? null,
+    resultEmail: listed ? null : parsed.resultEmail!,
   });
 
   await audit({ actorId: session.user.id, caseId: kase.id, action: "case.created", metadata: { reference: kase.reference } });
