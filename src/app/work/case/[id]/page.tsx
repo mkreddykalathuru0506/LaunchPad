@@ -87,7 +87,8 @@ export default async function CaseDetail({ params }: { params: { id: string } })
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+        {/* min-w-0 lets this column shrink instead of overflowing under the aside. */}
+        <div className="min-w-0 space-y-6 lg:col-span-2">
           <Tabs defaultValue="stages">
             <TabsList>
               <TabsTrigger value="stages">Stages</TabsTrigger>
@@ -249,23 +250,52 @@ export default async function CaseDetail({ params }: { params: { id: string } })
 
             <TabsContent value="docs">
               <Card><CardContent className="p-0">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left">
-                    <tr><th className="p-3">Filename</th><th className="p-3">Kind</th><th className="p-3">Size</th><th className="p-3">SHA-256</th><th className="p-3">Uploaded</th><th className="p-3" /></tr>
-                  </thead>
-                  <tbody>
-                    {kase.documents.map((d) => (
-                      <tr key={d.id} className="border-t">
-                        <td className="p-3 font-medium"><FileText className="mr-1 inline h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />{d.filename}</td>
-                        <td className="p-3">{d.kind}</td>
-                        <td className="p-3">{(d.sizeBytes / 1024).toFixed(1)} KB</td>
-                        <td className="p-3 font-mono text-xs">{d.sha256.slice(0, 12)}…</td>
-                        <td className="p-3 text-muted-foreground">{formatDateTime(d.createdAt)}</td>
-                        <td className="p-3"><Button asChild size="sm" variant="ghost"><a href={`/api/documents/${encodeURIComponent(d.storagePath)}`} target="_blank" rel="noreferrer">Open</a></Button></td>
+                {/* Two columns only — the old 6-column table (filename, size,
+                    SHA-256, …) overflowed under the right-hand panels, hiding
+                    details and burying the Open button. The KIND itself is the
+                    link: click it to open the file in a new tab. */}
+                <div className="flex items-center justify-between border-b border-dashed px-4 py-3">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+                    Document ledger
+                  </span>
+                  <span className="rounded-md bg-brand/10 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-brand">
+                    {String(kase.documents.length).padStart(2, "0")}
+                  </span>
+                </div>
+                {kase.documents.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    No documents uploaded yet.
+                  </p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-left">
+                      <tr>
+                        <th className="p-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Kind</th>
+                        <th className="p-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Uploaded</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {kase.documents.map((d) => (
+                        <tr key={d.id} className="border-t transition-colors hover:bg-accent/50">
+                          <td className="p-3">
+                            <a
+                              href={`/api/documents/${encodeURIComponent(d.storagePath)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={d.filename}
+                              aria-label={`Open ${d.filename}`}
+                              className="focus-ring inline-flex items-center gap-2 rounded-md font-medium text-brand hover:underline"
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                              <span className="capitalize">{d.kind.replace(/_/g, " ").toLowerCase()}</span>
+                            </a>
+                          </td>
+                          <td className="p-3 font-mono text-xs tracking-wide text-muted-foreground">{formatDateTime(d.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </CardContent></Card>
             </TabsContent>
 
