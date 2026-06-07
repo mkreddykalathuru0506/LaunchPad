@@ -6,6 +6,7 @@ import { Field, FieldGrid } from "@/components/stage/fields";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { createCase } from "@/server/actions/case";
+import { CompanySourceFields } from "./company-source-fields";
 
 export default async function NewCase() {
   await requireRole(["MANAGER", "ADMIN"]);
@@ -61,6 +62,9 @@ export default async function NewCase() {
                 </label>
               </Field>
             </FieldGrid>
+
+            <CompanySourceFields />
+
             <div className="flex justify-end">
               <SubmitButton variant="brand">Create case &amp; send invite</SubmitButton>
             </div>

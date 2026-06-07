@@ -49,6 +49,8 @@ interface PortalCandidatePayload {
   candidateType: PortalCandidateType;
   startDate?: string | null;
   requiredStages?: StageType[] | null;
+  /** Optional product/app within the listed company the hire belongs to. */
+  appName?: string | null;
 }
 
 const VALID_STAGE_TYPES = new Set<string>(Object.values(StageType));
@@ -124,6 +126,7 @@ function validatePayload(
       candidateType: o.candidateType,
       startDate: optStr(o.startDate),
       requiredStages,
+      appName: optStr(o.appName),
     },
   };
 }
@@ -421,6 +424,10 @@ export async function POST(req: NextRequest) {
           requiredStages: stages,
           portalCandidateKind: data.candidateRef.kind,
           portalCandidateId: data.candidateRef.id,
+          // Portal-provisioned = the LISTED company integration; results are
+          // pushed back to the portal (see notifyPortalCaseStatus).
+          companyName: "ElvixIT",
+          appName: data.appName ?? null,
         },
       }),
     );

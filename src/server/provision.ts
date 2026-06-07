@@ -16,6 +16,11 @@ export type ProvisionCandidateInput = {
   requireVeteran?: boolean;
   assignedVerifierId?: string | null;
   managedById: string;
+  // Requesting-company source: listed (ElvixIT portal — results pushed back to
+  // the portal) vs non-listed (manual — results emailed to resultEmail).
+  companyName?: string | null;
+  appName?: string | null;
+  resultEmail?: string | null;
 };
 
 /**
@@ -85,10 +90,19 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
   // deletion and 500'd the manager/admin create flows). Only the CREATE path
   // allocates: re-provisioning an existing case never touches its reference,
   // so don't burn a query (and a number) computing one.
+  const companyFields = {
+    companyName: input.companyName ?? null,
+    appName: input.appName ?? null,
+    resultEmail: input.resultEmail ?? null,
+  };
   const kase = existingCase
     ? await db.case.update({
         where: { candidateId: candidate.id },
-        data: { assignedVerifierId: input.assignedVerifierId ?? null, requiredStages: stages },
+        data: {
+          assignedVerifierId: input.assignedVerifierId ?? null,
+          requiredStages: stages,
+          ...companyFields,
+        },
       })
     : await withUniqueCaseReference((reference) =>
         db.case.create({
@@ -98,6 +112,7 @@ export async function provisionCandidateCase(input: ProvisionCandidateInput) {
             requiredStages: stages,
             assignedVerifierId: input.assignedVerifierId ?? null,
             managedById: input.managedById,
+            ...companyFields,
           },
         }),
       );

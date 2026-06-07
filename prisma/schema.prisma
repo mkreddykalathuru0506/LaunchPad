@@ -167,6 +167,14 @@ model Case {
   portalCandidateKind String?
   portalCandidateId   String?
 
+  // Requesting-company source. LISTED companies arrive automatically through
+  // the portal webhook (companyName "ElvixIT", appName optional) and get
+  // status + report pushed back to the portal. NON-LISTED companies are
+  // created manually and get status + clearance report emailed to resultEmail.
+  companyName String?
+  appName     String?
+  resultEmail String?
+
   candidate         Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   assignedVerifier  User?         @relation("AssignedVerifier", fields: [assignedVerifierId], references: [id])
   managedBy         User?         @relation("ManagedBy", fields: [managedById], references: [id])

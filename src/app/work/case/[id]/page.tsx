@@ -294,6 +294,18 @@ export default async function CaseDetail({ params }: { params: { id: string } })
             <CardHeader><CardTitle className="text-base">Case</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <Field k="Reference" v={kase.reference} />
+              <Field k="Company" v={kase.companyName ?? "—"} />
+              {kase.appName && <Field k="App" v={kase.appName} />}
+              <Field
+                k="Result delivery"
+                v={
+                  kase.portalCandidateKind
+                    ? "Portal (automatic)"
+                    : kase.resultEmail
+                      ? `Email · ${kase.resultEmail}`
+                      : "Internal only"
+                }
+              />
               <Field k="Type" v={kase.candidate.candidateType} />
               <Field k="Position" v={kase.candidate.positionTitle ?? "—"} />
               <Field k="Start date" v={formatDate(kase.candidate.startDate)} />
