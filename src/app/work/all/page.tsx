@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -7,6 +8,8 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { CaseStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
+
+export const metadata: Metadata = { title: "All cases" };
 
 export default async function AllCases() {
   await requireRole(["VERIFIER", "MANAGER", "ADMIN"]);

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { Logo } from "@/components/brand/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldCheck } from "lucide-react";
+
+export const metadata: Metadata = { title: "Sign in" };
 
 export default function LoginPage({ searchParams }: { searchParams: { callbackUrl?: string; error?: string } }) {
   return (
@@ -11,7 +14,7 @@ export default function LoginPage({ searchParams }: { searchParams: { callbackUr
       <div className="panel-navy relative hidden flex-col justify-between overflow-hidden lg:flex">
         <div aria-hidden className="dot-grid-light absolute inset-0 opacity-40 [mask-image:radial-gradient(70%_70%_at_30%_20%,#000,transparent)]" />
         <div className="relative p-10">
-          <Logo forSidebar />
+          <Logo variant="dark" />
         </div>
         <div className="relative p-10">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 font-mono text-[11px] tracking-[0.14em] text-sky-300">

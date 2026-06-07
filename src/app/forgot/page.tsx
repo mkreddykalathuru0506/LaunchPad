@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,8 @@ const STATUS_COPY: Record<Status, { kind: "success" | "error"; message: string }
     message: "That doesn't look like a valid email. Please check and try again.",
   },
 };
+
+export const metadata: Metadata = { title: "Magic link" };
 
 export default function Forgot({ searchParams }: { searchParams: { status?: string } }) {
   const status = STATUS_COPY[searchParams.status as Status];

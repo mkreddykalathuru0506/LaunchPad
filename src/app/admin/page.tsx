@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { SectionHeading } from "@/components/v2/section-heading";
@@ -6,6 +7,8 @@ import { ActivityFeed } from "@/components/v2/activity-feed";
 import { CardElev, CardElevBody, CardElevHeader, CardElevTitle, CardElevDescription } from "@/components/v2/card-elev";
 import { Users, FileText, Activity as ActivityIcon, Mail, ShieldCheck, Folder } from "lucide-react";
 import { getRecentActivity } from "@/server/queries/activity";
+
+export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminOverview() {
   const [userCount, caseCount, docCount, emailCount, auditCount, clearedCount, activity, emailStats] = await Promise.all([
