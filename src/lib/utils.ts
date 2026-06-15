@@ -1,6 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { StageType, StageStatus, CaseStatus, Role } from "@prisma/client";
+import {
+  StageType,
+  StageStatus,
+  CaseStatus,
+  Role,
+  PhysicalVerificationStatus,
+  PhysicalVisitKind,
+  PhysicalVisitStatus,
+} from "@prisma/client";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -59,6 +67,47 @@ export const roleLabels: Record<Role, string> = {
   MANAGER: "BG Manager",
   ADMIN: "Administrator",
 };
+
+// ───────── Physical (field) verification labels & tones ─────────
+
+export const physicalVerificationStatusLabels: Record<PhysicalVerificationStatus, string> = {
+  REQUESTED: "Requested",
+  IN_PROGRESS: "In progress",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+export const physicalVisitKindLabels: Record<PhysicalVisitKind, string> = {
+  ADDRESS: "Address",
+  EDUCATION: "Education",
+  EMPLOYMENT: "Employment",
+  OTHER: "Other",
+};
+
+export const physicalVisitStatusLabels: Record<PhysicalVisitStatus, string> = {
+  PENDING: "Pending visit",
+  VERIFIED: "Verified on site",
+  DISCREPANCY: "Discrepancy",
+  UNABLE_TO_VERIFY: "Unable to verify",
+};
+
+export function physicalStatusTone(
+  s: PhysicalVerificationStatus,
+): "neutral" | "info" | "warn" | "success" | "danger" {
+  if (s === "COMPLETED") return "success";
+  if (s === "CANCELLED") return "neutral";
+  if (s === "IN_PROGRESS") return "info";
+  return "warn"; // REQUESTED — needs the field team to pick it up
+}
+
+export function visitStatusTone(
+  s: PhysicalVisitStatus,
+): "neutral" | "info" | "warn" | "success" | "danger" {
+  if (s === "VERIFIED") return "success";
+  if (s === "DISCREPANCY") return "danger";
+  if (s === "UNABLE_TO_VERIFY") return "warn";
+  return "neutral"; // PENDING
+}
 
 export function statusTone(s: StageStatus | CaseStatus): "neutral" | "info" | "warn" | "success" | "danger" {
   if (s === "APPROVED" || s === "CLEARED") return "success";
