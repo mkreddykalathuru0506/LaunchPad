@@ -1,7 +1,7 @@
 import { Role } from "@prisma/client";
 import {
   Home, FileText, User, Bell, Inbox, ListChecks, LayoutDashboard, UserPlus,
-  FileBarChart2, Shield, Users, Activity, Mail, SlidersHorizontal,
+  FileBarChart2, Shield, Users, Activity, Mail, SlidersHorizontal, MapPinned,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getUnreadCount } from "@/server/queries/notifications";
@@ -21,7 +21,7 @@ export async function buildNav(session: AppSession): Promise<SidebarNavItem[]> {
   const role = session.user.role;
   const staff = role === Role.VERIFIER || role === Role.MANAGER || role === Role.ADMIN;
 
-  const [unread, pending] = await Promise.all([
+  const [unread, pending, fieldOpen] = await Promise.all([
     getUnreadCount(session.user.id),
     staff
       ? db.case.count({
@@ -30,6 +30,9 @@ export async function buildNav(session: AppSession): Promise<SidebarNavItem[]> {
             ...(role === Role.VERIFIER ? { assignedVerifierId: session.user.id } : {}),
           },
         })
+      : Promise.resolve(0),
+    staff
+      ? db.physicalVerification.count({ where: { status: { in: ["REQUESTED", "IN_PROGRESS"] } } })
       : Promise.resolve(0),
   ]);
 
@@ -53,6 +56,7 @@ export async function buildNav(session: AppSession): Promise<SidebarNavItem[]> {
   const review: SidebarNavItem[] = [
     { section: "Review", href: "/work", label: "Queue", icon: <Inbox />, badge: pending > 0 ? pending : undefined },
     { section: "Review", href: "/work/all", label: "All cases", icon: <ListChecks /> },
+    { section: "Review", href: "/work/physical", label: "Field visits", icon: <MapPinned />, badge: fieldOpen > 0 ? fieldOpen : undefined },
   ];
   const team: SidebarNavItem[] = [
     { section: "Team", href: "/team", label: "Overview", icon: <LayoutDashboard /> },

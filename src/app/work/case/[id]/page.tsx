@@ -6,13 +6,22 @@ import { getCaseForVerifier } from "@/server/queries/case";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CaseStatusBadge, StageStatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { stageLabels, formatDate, formatDateTime } from "@/lib/utils";
+import {
+  stageLabels,
+  formatDate,
+  formatDateTime,
+  physicalVerificationStatusLabels,
+  physicalStatusTone,
+} from "@/lib/utils";
 import { computeCaseStatus } from "@/lib/stages";
+import { getPhysicalSummaryForCase } from "@/server/queries/physical";
 import { StageReviewForm } from "./stage-review-form";
 import { ManagerActions } from "./manager-actions";
-import { ArrowLeft, FileDown, FileText, MapPin, GraduationCap, Briefcase, Users, Medal } from "lucide-react";
+import { StartPhysicalPanel } from "./physical/start-panel";
+import { ArrowLeft, FileDown, FileText, MapPin, MapPinned, GraduationCap, Briefcase, Users, Medal, ShieldCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { maskTail } from "@/lib/crypto";
 
@@ -62,6 +71,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
     take: 50,
     include: { actor: true },
   });
+  const physical = await getPhysicalSummaryForCase(kase.id);
 
   return (
     <>
@@ -94,6 +104,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
               <TabsTrigger value="stages">Stages</TabsTrigger>
               <TabsTrigger value="data">Candidate data</TabsTrigger>
               <TabsTrigger value="docs">Documents</TabsTrigger>
+              <TabsTrigger value="field">Field</TabsTrigger>
               <TabsTrigger value="audit">Audit</TabsTrigger>
             </TabsList>
 
@@ -297,6 +308,46 @@ export default async function CaseDetail({ params }: { params: { id: string } })
                   </table>
                 )}
               </CardContent></Card>
+            </TabsContent>
+
+            <TabsContent value="field" className="space-y-4">
+              {!physical ? (
+                <StartPhysicalPanel caseId={kase.id} />
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                          <MapPinned className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <CardTitle className="text-base">Physical (field) verification</CardTitle>
+                          <CardDescription>Optional, background on-ground checks.</CardDescription>
+                        </div>
+                      </div>
+                      <Badge tone={physicalStatusTone(physical.status)}>
+                        {physicalVerificationStatusLabels[physical.status]}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <MapPinned className="h-4 w-4 text-brand" aria-hidden /> {physical.total} site(s)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <ShieldCheck className="h-4 w-4 text-success" aria-hidden /> {physical.verified} verified
+                      </span>
+                    </div>
+                    <Button asChild variant="brand" size="sm">
+                      <Link href={`/work/case/${kase.id}/physical`}>
+                        <MapPinned className="h-4 w-4" /> Open field workspace
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="audit">

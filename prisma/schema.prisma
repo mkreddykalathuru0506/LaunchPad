@@ -88,6 +88,8 @@ model User {
   auditEvents     AuditEvent[]
   notifications   Notification[]
   stageReviews    StageReview[]
+  physVerifsStarted  PhysicalVerification[] @relation("PhysVerifStartedBy")
+  physVerifsAssigned PhysicalVerification[] @relation("PhysVerifAgent")
 
   @@index([role, active])
 }
@@ -188,6 +190,7 @@ model Case {
   consents          ConsentRecord[]
   magicLinks        MagicLink[]
   notes             CaseNote[]
+  physicalVerification PhysicalVerification?
 
   @@unique([portalCandidateKind, portalCandidateId])
   @@index([status])
@@ -495,6 +498,101 @@ model CaseNote {
   createdAt DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Physical (field) verification ----------
+//
+// A SEPARATE, OPTIONAL service from the online stages above. The BGV field team
+// physically visits the candidate's declared addresses, college / university,
+// and previous employers to confirm them on the ground and photograph the site.
+//
+// It is NEVER required for clearance: a case can reach CLEARED on the online
+// stages alone. Physical verification is started MANUALLY by staff (or triggered
+// by the hiring portal) and runs in the background, even after the candidate is
+// onboarded. One PhysicalVerification per case; each holds many field visits,
+// and each visit holds many on-site photos.
+
+enum PhysicalVerificationStatus {
+  REQUESTED    // service started / requested, no field work logged yet
+  IN_PROGRESS  // field agent actively visiting
+  COMPLETED    // all visits logged and signed off
+  CANCELLED
+}
+
+enum PhysicalVisitKind {
+  ADDRESS
+  EDUCATION
+  EMPLOYMENT
+  OTHER
+}
+
+enum PhysicalVisitStatus {
+  PENDING           // scheduled / yet to visit
+  VERIFIED          // confirmed on the ground
+  DISCREPANCY       // visited, but details did not match
+  UNABLE_TO_VERIFY  // could not reach / access refused / not found
+}
+
+model PhysicalVerification {
+  id              String                     @id @default(cuid())
+  caseId          String                     @unique
+  status          PhysicalVerificationStatus @default(REQUESTED)
+  origin          String                     @default("MANUAL") // MANUAL | PORTAL
+  reason          String?                    @db.Text           // why it was triggered (portal note / staff note)
+  startedById     String?                    // staff member who started the service
+  assignedAgentId String?                    // BGV field agent responsible
+  summary         String?                    @db.Text           // overall field conclusion at sign-off
+  completedAt     DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  case          Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  startedBy     User?           @relation("PhysVerifStartedBy", fields: [startedById], references: [id])
+  assignedAgent User?           @relation("PhysVerifAgent", fields: [assignedAgentId], references: [id])
+  visits        PhysicalVisit[]
+
+  @@index([status])
+}
+
+model PhysicalVisit {
+  id             String              @id @default(cuid())
+  verificationId String
+  kind           PhysicalVisitKind
+  status         PhysicalVisitStatus @default(PENDING)
+  label          String              // e.g. "Permanent address" / "Osmania University" / "Acme Corp"
+  addressText    String?             @db.Text // full site address the agent travelled to
+  contactName    String?             // person met on site (warden, registrar, HR, neighbour)
+  contactPhone   String?
+  scheduledFor   DateTime?
+  visitedAt      DateTime?
+  latitude       String?             // captured geo of the visit
+  longitude      String?
+  findings       String?             @db.Text // agent's on-the-ground notes
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  verification PhysicalVerification @relation(fields: [verificationId], references: [id], onDelete: Cascade)
+  photos       PhysicalVisitPhoto[]
+
+  @@index([verificationId])
+}
+
+model PhysicalVisitPhoto {
+  id          String   @id @default(cuid())
+  visitId     String
+  caption     String?
+  filename    String
+  storagePath String   // resolved by lib/storage
+  contentType String
+  sizeBytes   Int
+  sha256      String
+  latitude    String?
+  longitude   String?
+  createdAt   DateTime @default(now())
+
+  visit PhysicalVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
 }
 
 // ---------- Settings (singleton) ----------
