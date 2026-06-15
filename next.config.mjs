@@ -4,7 +4,13 @@ const nextConfig = {
   poweredByHeader: false,
   output: "standalone",
   experimental: {
-    serverActions: { bodySizeLimit: "20mb" },
+    // Selfie liveness videos (VIDEO stage) upload through a server action, which
+    // buffers the whole body. The video page advertises up to 200 MB, so this must
+    // match — at 20 MB a normal phone recording was silently rejected before the
+    // action ran. NOTE: the reverse proxy in front (Caddyfile / shared Caddy) must
+    // allow the same size, and each in-flight upload holds up to this much in the
+    // web container's memory.
+    serverActions: { bodySizeLimit: "200mb" },
   },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
