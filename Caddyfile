@@ -35,9 +35,11 @@ www.{$LAUNCHPAD_DOMAIN:launchpad.local} {
 		-X-Powered-By
 	}
 
-	# Generous request size for document uploads
+	# Request size for uploads. Must cover the selfie liveness video (the VIDEO
+	# stage advertises up to 200 MB) and stay in step with Next's serverActions
+	# bodySizeLimit — a smaller value here returns 413 before Next is reached.
 	request_body {
-		max_size 25MB
+		max_size 200MB
 	}
 
 	reverse_proxy web:3000 {
@@ -46,8 +48,10 @@ www.{$LAUNCHPAD_DOMAIN:launchpad.local} {
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		transport http {
-			read_timeout 60s
-			write_timeout 60s
+			# Generous timeouts so a large video upload on a slow mobile uplink
+			# isn't cut off mid-transfer (200 MB at a few Mbps takes minutes).
+			read_timeout 300s
+			write_timeout 300s
 			dial_timeout 5s
 		}
 	}
