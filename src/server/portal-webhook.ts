@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
+import { buildCandidateProfile } from "@/server/portal-profile";
 
 type PortalEvent = "bgv.cleared" | "bgv.rejected" | "bgv.withdrawn";
 
@@ -162,6 +163,23 @@ export async function notifyPortalCaseStatus(
         ? `${env.APP_URL}/api/documents/cleared-report/${kase.id}`
         : null;
 
+    // On clearance, carry the profile the candidate filled in here. The portal
+    // stores it on the candidate row and copies it onto the employee's profile at
+    // provisioning (gaps only) — see portal docs/integrations/candidate-profile-contract.md.
+    // Rejected/withdrawn cases send nothing: there's no hire to populate.
+    let verifiedProfile = null;
+    if (newStatus === "CLEARED") {
+      try {
+        verifiedProfile = await buildCandidateProfile(kase.id);
+      } catch (e) {
+        // A profile we can't build must not cost the portal its status callback.
+        logger.warn("portal_webhook.profile_build_failed", {
+          caseId: kase.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+
     const payload = {
       event,
       timestamp: new Date().toISOString(),
@@ -177,6 +195,8 @@ export async function notifyPortalCaseStatus(
       },
       completedAt: completedAt.toISOString(),
       reportUrl,
+      // Optional by contract — the portal ignores it when absent.
+      ...(verifiedProfile ? { verifiedProfile } : {}),
     };
 
     const body = JSON.stringify(payload);
