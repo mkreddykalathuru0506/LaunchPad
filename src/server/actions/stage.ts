@@ -15,6 +15,8 @@ import {
 } from "@/server/emails";
 import { notifyStageSubmitted, notifyBgvTeam } from "@/server/notify";
 import { computeCaseStatus, requiredStagesForCase } from "@/lib/stages";
+import { issueClearance } from "@/server/actions/review";
+import { notifyPortalCaseStatus } from "@/server/portal-webhook";
 import { stageLabels } from "@/lib/utils";
 import { StageStatus, StageType, AddressType, DocumentKind, ConsentKind } from "@prisma/client";
 
@@ -80,16 +82,50 @@ async function storeFile(file: File, opts: { kind: DocumentKind; caseId: string;
   return doc;
 }
 
-async function transitionCaseStatus(caseId: string) {
+/**
+ * Recompute and persist the case status after a candidate-side change.
+ *
+ * A terminal status reached from here must be treated exactly like one reached
+ * at the desk: clearedAt/rejectedAt stamped, the clearance issued, the portal
+ * told. This used to write `status` alone, which was harmless only while no
+ * candidate action could reach CLEARED — skipping VIDEO broke that assumption
+ * (it shrinks requiredStages until every remaining stage is already APPROVED),
+ * leaving the case CLEARED with a null clearedAt and no callback, while the
+ * portal kept the candidate parked at the BGV stage.
+ *
+ * Side effects fire only on the transition INTO a terminal status, so the many
+ * draft/submit callers below stay idempotent.
+ */
+async function transitionCaseStatus(caseId: string, actorId?: string) {
   const kase = await db.case.findUnique({
     where: { id: caseId },
-    select: { requiredStages: true, stages: { select: { type: true, status: true } } },
+    select: {
+      status: true,
+      requiredStages: true,
+      stages: { select: { type: true, status: true } },
+    },
   });
   if (!kase) return;
   // Shared required-set status math — see computeCaseStatus for why stray
   // stage rows (retired REFERENCE, candidate-type leftovers) are excluded.
   const status = computeCaseStatus(kase, kase.stages);
-  await db.case.update({ where: { id: caseId }, data: { status } });
+  if (status === kase.status) return;
+
+  await db.case.update({
+    where: { id: caseId },
+    data: {
+      status,
+      clearedAt: status === "CLEARED" ? new Date() : null,
+      rejectedAt: status === "REJECTED" ? new Date() : null,
+    },
+  });
+
+  if (status === "CLEARED") {
+    // Owns the clearance report, the clearance emails and the portal callback.
+    await issueClearance(caseId, actorId);
+  } else if (status === "REJECTED") {
+    void notifyPortalCaseStatus(caseId, status);
+  }
 }
 
 /**
@@ -861,7 +897,8 @@ async function skipVideoStageImpl() {
     metadata: { reason: "candidate_skipped_upload", requiredStagesAfter: remaining },
   });
   // Recompute AFTER the required set shrinks: the video row no longer counts.
-  await transitionCaseStatus(kase.id);
+  // Pass the actor so a clearance this skip triggers is attributable in the audit.
+  await transitionCaseStatus(kase.id, s.user.id);
   revalidatePath("/me");
   revalidatePath("/me/review");
   redirect("/me?skipped=video");
