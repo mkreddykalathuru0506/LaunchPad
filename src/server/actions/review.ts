@@ -43,8 +43,11 @@ async function recomputeCase(caseId: string) {
     },
   });
 
-  // Fire portal callback on terminal transitions. Fire-and-forget; never throws.
-  if (status === "CLEARED" || status === "REJECTED") {
+  // REJECTED notifies from here. CLEARED does NOT: issueClearance owns every
+  // clearance side effect and is the only place that knows the report URL, so
+  // firing from here as well delivered bgv.cleared with reportUrl:null (and
+  // risked a double delivery). Fire-and-forget; never throws.
+  if (status === "REJECTED") {
     void notifyPortalCaseStatus(caseId, status);
   }
 
@@ -212,15 +215,18 @@ export async function addCaseNote(formData: FormData) {
   revalidatePath(`/work/case/${caseId}`);
 }
 
-export async function issueClearance(caseId: string, actorId: string) {
-  // Idempotency guard: if the case is already CLEARED, skip the report
-  // regeneration, the clearance emails, and (most importantly) the outbound
-  // portal webhook so a re-run does not re-fire bgv.cleared.
+export async function issueClearance(caseId: string, actorId?: string) {
+  // Idempotency guard keyed on the WORK PRODUCT (the generated report), not on
+  // status. recomputeCase sets status=CLEARED before decideStage calls us, so a
+  // status guard made this entire function dead code on the normal desk path:
+  // no report, no clearance emails, no case.cleared audit, and a portal callback
+  // carrying reportUrl:null. Guarding on clearedReportPath still stops a re-run
+  // from regenerating the report or re-firing bgv.cleared.
   const existing = await db.case.findUnique({
     where: { id: caseId },
-    select: { status: true },
+    select: { clearedReportPath: true },
   });
-  if (existing?.status === CaseStatus.CLEARED) return;
+  if (existing?.clearedReportPath) return;
 
   const path = await generateClearedReport(caseId);
   await db.case.update({ where: { id: caseId }, data: { clearedReportPath: path, status: "CLEARED", clearedAt: new Date() } });
