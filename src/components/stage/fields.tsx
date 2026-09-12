@@ -3,6 +3,7 @@ import { Upload } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { FileSizeGuardClient } from "@/components/stage/file-size-guard";
 
 export function Field({
   label, htmlFor, hint, className, children, required,
@@ -30,13 +31,20 @@ export function FieldGrid({ children, cols = 2 }: { children: React.ReactNode; c
 }
 
 export function FileField({
-  name, label, accept, hint, className,
+  name, label, accept, hint, className, maxBytes,
 }: {
   name: string;
   label: string;
   accept?: string;
   hint?: string;
   className?: string;
+  /**
+   * Reject an oversized file in the browser. Without this the POST is killed by
+   * the reverse proxy (413) before any server code runs, so the candidate only
+   * ever saw a generic "couldn't save" — which is how the video stage became
+   * unusable for anyone with a phone recording.
+   */
+  maxBytes?: number;
 }) {
   return (
     <div className={cn("rounded-xl border border-dashed border-input p-4", className)}>
@@ -52,10 +60,18 @@ export function FileField({
             {label}
           </Label>
           {/* The real <input> stays — name/accept untouched; styled via file: modifiers. */}
-          <Input id={name} name={name} type="file" accept={accept} className="h-auto border-0 bg-transparent px-0 py-0 shadow-none" />
+          <Input
+            id={name}
+            name={name}
+            type="file"
+            accept={accept}
+            data-max-bytes={maxBytes}
+            className="h-auto border-0 bg-transparent px-0 py-0 shadow-none"
+          />
           {hint && (
             <p className="font-mono text-[11px] tracking-wide text-muted-foreground">{hint}</p>
           )}
+          {maxBytes ? <FileSizeGuardClient inputId={name} maxBytes={maxBytes} /> : null}
         </div>
       </div>
     </div>

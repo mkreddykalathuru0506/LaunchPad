@@ -824,6 +824,51 @@ async function submitVideoStageImpl(formData: FormData) {
 // (Stage submitted -> in-app BGV notification lives in notifyStageSubmittedFor;
 //  the verifier is emailed once at final submit — see submitProfileForBgv.)
 
+// ---------- VIDEO: skip ----------
+
+/**
+ * Let a candidate drop the VIDEO stage when they cannot upload a recording
+ * (phone videos routinely exceed the proxy's request-body cap, which rejects
+ * the upload before the action ever runs — see next.config.mjs).
+ *
+ * "Skipped" is modelled by removing VIDEO from the case's own `requiredStages`
+ * rather than inventing a StageStatus: that column is already the single source
+ * of truth for the dashboard journey, the review page, final submit gating and
+ * computeCaseStatus -> CLEARED, and portal-provisioned cases already arrive
+ * with custom shortened sets. So the case can still clear, with no schema
+ * change. The stage row (and any draft/recording already uploaded) is left
+ * untouched so a verifier can still see what was attempted.
+ */
+async function skipVideoStageImpl() {
+  const s = await requireRole("CANDIDATE");
+  const { kase } = await getCandidateCase(s.user.id);
+
+  const required = await requiredStageSetFor(kase);
+  if (!required.includes(StageType.VIDEO)) redirect("/me?skipped=video");
+
+  const remaining = required.filter((t) => t !== StageType.VIDEO);
+  // Never leave a case with nothing to verify — that would compute as CLEARED.
+  if (remaining.length === 0) {
+    throw new Error("Video is the only remaining stage on your case, so it can't be skipped. Please contact the BGV team.");
+  }
+
+  await db.case.update({ where: { id: kase.id }, data: { requiredStages: remaining } });
+  await audit({
+    actorId: s.user.id,
+    caseId: kase.id,
+    action: "stage.skipped",
+    target: "VIDEO",
+    metadata: { reason: "candidate_skipped_upload", requiredStagesAfter: remaining },
+  });
+  // Recompute AFTER the required set shrinks: the video row no longer counts.
+  await transitionCaseStatus(kase.id);
+  revalidatePath("/me");
+  revalidatePath("/me/review");
+  redirect("/me?skipped=video");
+}
+
+export const skipVideoStage = withStageErrors("/me/stage/video", skipVideoStageImpl);
+
 // ---------- FINAL SUBMIT (candidate sends the whole profile to BGV) ----------
 
 async function submitProfileForBgvImpl() {

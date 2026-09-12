@@ -89,7 +89,7 @@ export const metadata: Metadata = { title: "My verification" };
 export default async function CandidateDashboard({
   searchParams,
 }: {
-  searchParams?: { submitted?: string };
+  searchParams?: { submitted?: string; skipped?: string };
 }) {
   const session = await requireRole("CANDIDATE");
 
@@ -148,6 +148,10 @@ export default async function CandidateDashboard({
     <div className="space-y-8">
       {searchParams?.submitted === "1" && (
         <FlowFeedback success="Thanks! Your profile has been sent to the BGV team. You'll be notified as it's reviewed." />
+      )}
+
+      {searchParams?.skipped === "video" && (
+        <FlowFeedback success="Video stage skipped. It's no longer required for your verification — the BGV team has been told and can ask for a recording later." />
       )}
 
       {/* ── Case-file hero — fixed navy, both themes ─────────────────────── */}
