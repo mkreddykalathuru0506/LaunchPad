@@ -403,6 +403,7 @@ export default async function CaseDetail({ params }: { params: { id: string } })
               currentVerifierId={kase.assignedVerifierId}
               canClear={computeCaseStatus(kase, kase.stages) === "CLEARED"}
               alreadyCleared={kase.status === "CLEARED"}
+              clearanceIncomplete={kase.clearedReportPath === null}
             />
           )}
         </aside>
